@@ -1,0 +1,4245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>nepes Ark 실시간 모니터링 시스템</title>
+    <script src="/public/tailwind.min.js"></script>
+    <script src="/public/chart.js"></script>
+    <script src="/public/xlsx.full.min.js"></script>
+    <script src="/public/chartjs-plugin-trendline"></script>
+    <script src="/public/xlsx.full.min.js"></script>
+    <script>
+        function logout() {
+            if (confirm('로그아웃 하시겠습니까?')) {
+                fetch('/logout', {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                }).then(response => {
+                    if (response.ok) {
+                        window.location.href = '/login_RPA';
+                    } else {
+                        console.error('로그아웃 실패');
+                    }
+                }).catch(error => {
+                    console.error('로그아웃 요청 중 오류 발생:', error);
+                });
+            }
+        }
+        // 이미지 클릭 시 페이지 새로고침
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('refreshImage').addEventListener('click', function() {
+                location.reload();
+            });
+        });
+
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #1a1a2e;
+        }
+        .main-content {
+            transition: padding-left 0.3s ease;
+            padding-left: 0;
+        }
+        .main-content.with-sidebar {
+            padding-left: 3rem;
+        }
+        .image-popup {
+            width: 100%;
+            height: 80%;
+            overflow: auto;
+            position: fixed;
+            top: 10%;
+            left: 10%;
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 20px;
+            z-index: 1000;
+        }
+        .image-class {
+            width: 100%;
+            height: auto;
+        }
+        .card {
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-10px);
+        }
+
+        /* 이미지 호버 애니메이션 추가 */
+        #refreshImage {
+            transition: transform 0.4s ease;
+        }
+        #refreshImage:hover {
+            transform: scale(1.05);
+        }
+
+        /* 버튼 호버 애니메이션 추가 */
+        button {
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: left 0.3s ease;
+        }
+        button:hover::before {
+            left: 100%;
+        }
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+       
+        /* 테이블 행 기본 스타일 */
+        #reportConfirmTable tbody tr {
+            transition: background-color 0.3s ease;
+        }
+        
+        /* 마우스 호버 시 배경색 변경 */
+        #reportConfirmTable tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+         /* 팝업창 크기 조정 */
+        #popupModal {
+            width: 100%; /* 너비를 80%로 설정 */
+            height: 100%; /* 높이를 80%로 설정 */
+        }
+
+        /* 팝업창 내용 크기 조정 */
+        #popupContent {
+            max-height: 100%; /* 최대 높이를 70%로 설정 */
+            overflow-y: auto; /* 세로 스크롤 추가 */
+        }
+
+        /* Autobe Check 모달 스타일 */
+        .autobe-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .autobe-modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .autobe-modal-content {
+            position: relative;
+            width: 90%;
+            height: 90%;
+            max-width: 1400px;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 30%, #16213e 60%, #0f3460 100%);
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .autobe-modal-header {
+            position: relative;
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(145deg, rgba(26, 26, 46, 0.9) 0%, rgba(22, 33, 62, 0.9) 100%);
+            border-bottom: 2px solid rgba(0, 255, 255, 0.2);
+        }
+
+        .autobe-modal-header h1 {
+            color: #00ffff;
+            font-size: 2.5rem;
+            margin: 0;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            letter-spacing: 2px;
+            font-family: '맑은 고딕', 'Malgun Gothic', 'Consolas', monospace;
+            font-weight: bold;
+        }
+
+        .autobe-modal-header p {
+            color: rgba(0, 255, 255, 0.7);
+            font-size: 1.1rem;
+            margin-top: 0.5rem;
+            letter-spacing: 1px;
+            font-family: '맑은 고딕', 'Malgun Gothic', 'Consolas', monospace;
+        }
+
+        .autobe-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            color: #00ccff;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .autobe-close-btn:hover {
+            background: linear-gradient(145deg, #16213e 0%, #0f3460 100%);
+            border-color: rgba(0, 255, 255, 0.6);
+            color: #00ffff;
+            transform: scale(1.1);
+        }
+
+        .autobe-tab-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            padding: 1rem 2rem;
+            background: linear-gradient(145deg, rgba(15, 52, 96, 0.3) 0%, rgba(26, 26, 46, 0.3) 100%);
+            border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+        }
+
+        .autobe-tab-button {
+            background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 0.8rem 1.5rem;
+            color: #00ccff;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            min-width: 100px;
+        }
+
+        .autobe-tab-button:hover {
+            background: linear-gradient(145deg, #16213e 0%, #0f3460 100%);
+            border-color: rgba(0, 255, 255, 0.6);
+            color: #00ffff;
+            transform: translateY(-2px);
+        }
+
+        .autobe-tab-button.active {
+            background: linear-gradient(145deg, #0f3460 0%, #16213e 100%);
+            border-color: rgba(0, 255, 255, 0.8);
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .autobe-tab-content {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+        .autobe-tab-content.active {
+            display: block;
+        }
+
+        .autobe-content-card {
+            background: linear-gradient(145deg, rgba(26, 26, 46, 0.9) 0%, rgba(22, 33, 62, 0.9) 100%);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            padding: 1.5rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .autobe-content-card h2 {
+            color: #00ffff;
+            margin-bottom: 1.5rem;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+            font-family: '맑은 고딕', 'Malgun Gothic', 'Consolas', monospace;
+            font-weight: bold;
+        }
+
+        /* 테이블 컨테이너에 스크롤 추가 */
+        .autobe-table-container {
+            flex: 1;
+            overflow-y: auto;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        /* 사이버펑크 스타일 스크롤바 */
+        .autobe-table-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .autobe-table-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        .autobe-table-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(145deg, #00ccff 0%, #0099cc 100%);
+            border-radius: 4px;
+            box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+        }
+
+        .autobe-table-container::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(145deg, #00ffff 0%, #00ccff 100%);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        /* 장비 개수 표시 스타일 */
+        .equipment-count {
+            display: inline-block;
+            margin-left: 1rem;
+            padding: 0.5rem 1rem;
+            background: linear-gradient(145deg, rgba(0, 255, 255, 0.15) 0%, rgba(0, 200, 255, 0.15) 100%);
+            color: #00ffff;
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+            box-shadow: 
+                0 0 15px rgba(0, 255, 255, 0.2),
+                inset 0 1px 0 rgba(0, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            animation: countPulse 3s ease-in-out infinite;
+        }
+
+        .equipment-count .count-number {
+            font-size: 1.1em;
+            font-weight: 900;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+        }
+
+        @keyframes countPulse {
+            0%, 100% {
+                box-shadow: 
+                    0 0 15px rgba(0, 255, 255, 0.2),
+                    inset 0 1px 0 rgba(0, 255, 255, 0.1);
+            }
+            50% {
+                box-shadow: 
+                    0 0 25px rgba(0, 255, 255, 0.4),
+                    inset 0 1px 0 rgba(0, 255, 255, 0.2);
+            }
+        }
+
+        .autobe-data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: linear-gradient(145deg, rgba(10, 10, 10, 0.8) 0%, rgba(26, 26, 46, 0.8) 100%);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+        }
+
+        .autobe-data-table th {
+            background: linear-gradient(145deg, rgba(0, 52, 96, 0.9) 0%, rgba(22, 33, 62, 0.9) 100%);
+            color: #00ffff;
+            padding: 1rem;
+            text-align: left;
+            font-weight: bold;
+            border-bottom: 2px solid rgba(0, 255, 255, 0.3);
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+            letter-spacing: 1px;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .autobe-data-table th:hover {
+            background: linear-gradient(145deg, rgba(0, 82, 126, 0.9) 0%, rgba(32, 53, 82, 0.9) 100%);
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.2);
+        }
+
+        .autobe-data-table th.sort-active {
+            background: linear-gradient(145deg, rgba(0, 102, 156, 0.9) 0%, rgba(42, 73, 102, 0.9) 100%);
+            color: #00ffff;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
+            box-shadow: 
+                0 0 20px rgba(0, 255, 255, 0.3),
+                inset 0 0 10px rgba(0, 255, 255, 0.1);
+        }
+
+        .sort-icon {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 0.8em;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .autobe-data-table th:hover .sort-icon {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .autobe-data-table th.sort-active .sort-icon {
+            opacity: 1;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            animation: sortGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes sortGlow {
+            from {
+                text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+            }
+            to {
+                text-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+            }
+        }
+
+        .autobe-data-table td {
+            padding: 1rem;
+            color: #e0e0e0;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+            font-family: 'Consolas', monospace;
+        }
+
+        .autobe-data-table tr:hover {
+            background: linear-gradient(145deg, rgba(0, 255, 255, 0.05) 0%, rgba(0, 150, 255, 0.05) 100%);
+            box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.1);
+        }
+
+        .autobe-loading {
+            text-align: center;
+            color: #00ccff;
+            font-size: 1.2rem;
+            padding: 2rem;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        .autobe-loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #00ffff;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* RPA History List 테이블 최적화 스타일 */
+        .rpa-table {
+            font-size: 11px !important;
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        .rpa-table th,
+        .rpa-table td {
+            padding: 4px 6px !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 11px !important;
+            line-height: 1.2;
+            border: 1px solid #ddd;
+        }
+
+        .rpa-table th {
+            background-color: #f8f9fa !important;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .rpa-table tbody tr:hover {
+            background-color: rgba(0, 123, 255, 0.1) !important;
+        }
+
+        /* 컬럼별 너비 최적화 */
+        .rpa-table th:nth-child(1),
+        .rpa-table td:nth-child(1) { width: 6%; } /* ID */
+        .rpa-table th:nth-child(2),
+        .rpa-table td:nth-child(2) { width: 8%; } /* START_TIME */
+        .rpa-table th:nth-child(3),
+        .rpa-table td:nth-child(3) { width: 8%; } /* END_TIME */
+        .rpa-table th:nth-child(4),
+        .rpa-table td:nth-child(4) { width: 7%; } /* RUN_TIME */
+        .rpa-table th:nth-child(5),
+        .rpa-table td:nth-child(5) { width: 8%; } /* SORT_TYPE */
+        .rpa-table th:nth-child(6),
+        .rpa-table td:nth-child(6) { width: 8%; } /* MACHINE */
+        .rpa-table th:nth-child(7),
+        .rpa-table td:nth-child(7) { width: 10%; } /* LOT_ID */
+        .rpa-table th:nth-child(8),
+        .rpa-table td:nth-child(8) { width: 6%; } /* SLOT */
+        .rpa-table th:nth-child(9),
+        .rpa-table td:nth-child(9) { width: 6%; } /* STEP */
+        .rpa-table th:nth-child(10),
+        .rpa-table td:nth-child(10) { width: 10%; } /* DEVICE_PPID */
+        .rpa-table th:nth-child(n+11),
+        .rpa-table td:nth-child(n+11) { width: 4%; } /* 나머지 컬럼들 */
+
+        /* 스크롤바 스타일링 */
+        .rpa-table-container::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .rpa-table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .rpa-table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        .rpa-table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* 툴팁 스타일 */
+        .cell-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 9999;
+            pointer-events: none;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-width: 300px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 필터 버튼 스타일 */
+        .filter-button {
+            padding: 8px 16px;
+            border: 2px solid #ddd;
+            background: white;
+            color: #333;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-button:hover {
+            border-color: #007bff;
+            background: #f8f9ff;
+        }
+
+        .filter-button.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .filter-container {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        /* 데이터 카운트 표시 스타일 */
+        .data-count {
+            padding: 12px 16px;
+            background: #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #495057;
+            text-align: center;
+            margin-top: 16px;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+
+</head> 
+
+<body>
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div id="sidebar" class="bg-gray-900 text-white w-64 p-4 space-y-4">
+            <div class="flex items-center mb-8">
+                <img src="/getImage" alt="nRMS" class="h-30" id="refreshImage">
+            </div>
+            <button id="toggleMenu" class="w-full bg-yellow-600 py-2 rounded">🔐 메뉴숨기기</button>
+            <button id="mainBtn" class=" w-full bg-blue-600 py-2 rounded">메인 화면</button>
+            <button id="monitoringBtn" class="w-full bg-blue-600 py-2 rounded">🖥 장비 모니터링</button>
+            <!-- <button id="reportConfirmBtn" class="w-full bg-red-600 py-2 rounded">Report 최종확인</button> -->
+            <!-- 파일 선택 부분 제거 -->
+            <button id="loadingPositionBtn" class="w-full bg-green-600 py-2 rounded">📚 Loading Position</button>
+            <button id="showRPAInterfaceBtn" class="w-full bg-green-600 py-2 rounded">📑 RPA 이력 확인</button>
+            <button id="autobeCheckBtn" class="w-full bg-purple-600 py-2 rounded" onclick="openAutobeModal()">📊 Autobe Check</button>
+            <button id="remoteControlBtn" class="w-full bg-red-600 p-2 rounded" onclick="window.location.href='/remote'">🛠 Remote Control</button>
+            
+        </div>
+
+        
+        <!-- Main Content -->
+        <div class="main-content with-sidebar p-6 bg-gray-800 text-white flex-1">
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center">
+                    <button id="showMenu" class="bg-blue-600 text-white px-4 py-2 rounded hidden mr-4">
+                        ≡
+                    </button>
+                    <h1 class="text-2xl font-bold">RPA 실시간 관제시스템</h1>
+                    &nbsp;&nbsp;&nbsp;<h2 class="text-1xl font-bold" style="color: hsl(27, 93%, 57%);"> (Developed by HyperAutomation Team)</h2>
+                </div>
+                <div class="flex space-x-4">
+                    <span id="welcomeMessage" class="text-gray-300"></span>
+                    <span id="lastRefreshTime" class="text-gray-300">마지막 업데이트: --:--:--</span>
+                    <button id="settingsBtn" class="bg-gray-700 p-2 rounded">⚙ 설정</button>
+                    <button id="refreshBtn" class="bg-gray-700 p-2 rounded">↻ 최신화</button>
+                    <button class="bg-gray-700 p-2 rounded" onclick="logout()">로그아웃</button>
+
+                </div>
+            </div>
+        
+        <!-- Monitoring Grid -->
+            <div id="monitoringGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        
+            <script>
+            //Autobe 정렬 상태 관리 (전역 변수)
+            let sortState = {
+                column: null,
+                direction: 'none',
+                originalData: {}
+            };
+
+            document.addEventListener('DOMContentLoaded', function() {
+                fetch('/getMonitoringData')
+                    .then(response => response.json())
+                    .then(data => {
+                        const monitoringGrid = document.getElementById('monitoringGrid');
+                        monitoringGrid.innerHTML = ''; // 기존 내용을 지웁니다.
+                        data.forEach(item => {
+                            const card = document.createElement('div');
+                            card.className = 'card bg-blue-100 p-4 rounded shadow';
+                            card.setAttribute('data-eqpid', item.EQPID); // data-eqpid 속성 추가
+                            card.innerHTML = `
+                                <div class="flex justify-between items-center">
+                                    <h2 class="text-2xl font-bold text-blue-800">${item.EQPID}</h2>
+                                    <span class="text-sm bg-blue-500 text-white px-3 py-1 rounded-full">${item.ROWNUM}</span> 
+                                </div>
+                                <span class="text-sm bg-gray-500 text-white px-2 py-1 rounded-full">${item.STATUS}</span>
+                                <table class="w-full text-sm text-gray-800 mt-2 border-collapse border border-white">
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">DEVICE:</td>
+                                        <td class="font-bold border border-white p-1">${item.DEVICE}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">LOT-ID:</td>
+                                        <td class="font-bold border border-white p-1">${item.LOT_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">STEP-ID:</td>
+                                        <td class="font-bold border border-white p-1">${item.STEP_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">PC-ID:</td>
+                                        <td class="font-bold border border-white p-1">${item.PC_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">PB-ID:</td>
+                                        <td class="font-bold border border-white p-1">${item.PB_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">USER-ID:</td>
+                                        <td class="font-bold border border-white p-1">${item.USER_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">STATUS:</td>
+                                        <td class="font-bold border border-white p-1">${item.RPA_STATUS}</td>
+                                    </tr>
+                                </table>
+                                        <div class="mt-4">
+                                            <div class="bg-blue-600 text-white py-2 px-4 rounded-t-lg text-center font-semibold">
+                                                RPA 진행률
+                                            </div>
+                                            <div class="progress-bg p-3 rounded-b-lg">
+                                                <p class="text-sm font-bold text-blue-700 text-center">진행률: ${item.PROGRESS}%</p>
+                                                <p class="text-sm font-bold text-blue-700 text-center">(${item.PG_DETAIL})</p>
+                                                <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                                    <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style="width: ${item.PROGRESS}%"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                `;
+                            // 상태에 따른 색상 설정
+                            let headerColor, bgColor, cardColor, progressBarColor, badgeColor;
+                            if (item.RPA_STATUS === 'Wait') {
+                            headerColor = 'bg-gray-600';
+                            bgColor = 'bg-gray-200';
+                            cardColor = 'bg-gray-100';
+                            badgeColor = 'bg-gray-500';
+                            progressBarColor = 'bg-gray-600';
+                            } else if (item.RPA_STATUS === 'Error') {
+                            headerColor = 'bg-red-600';
+                            bgColor = 'bg-red-200';
+                            cardColor = 'bg-red-100';
+                            badgeColor = 'bg-red-500';
+                            progressBarColor = 'bg-red-600';
+                            } else {
+                            headerColor = 'bg-green-600';
+                            bgColor = 'bg-green-200';
+                            cardColor = 'bg-green-100';
+                            badgeColor = 'bg-green-500';
+                            progressBarColor = 'bg-green-600';
+                            }
+                            monitoringGrid.appendChild(card);
+                        });
+                    })
+                    .catch(error => console.error('Error fetching monitoring data:', error));
+            });
+        </script>
+         
+</div>
+            <script>
+                // 사용자 정보를 가져와서 환영 메시지 표시
+                async function fetchUserInfo() {
+                    try {
+                        const response = await fetch('/user_info');
+                        if (response.ok) {
+                            const data = await response.json();
+                            document.getElementById('welcomeMessage').textContent = `😜${data.userName}님 환영합니다.`;
+                        } else {
+                            console.error('Failed to fetch user info');
+                        }
+                    } catch (error) {
+                        console.error('Error fetching user info:', error);
+                    }
+                }
+
+                // 페이지 로드 시 사용자 정보 가져오기
+                window.addEventListener('load', fetchUserInfo);
+
+                // 로그아웃 함수
+                function logout() {
+                    if (confirm('로그아웃 하시겠습니까?')) {
+                        fetch('/logout', {
+                            method: 'POST',
+                            credentials: 'same-origin'
+                        }).then(response => {
+                            if (response.ok) {
+                                window.location.href = '/login_RPA';
+                            } else {
+                                console.error('로그아웃 실패');
+                            }
+                        }).catch(error => {
+                            console.error('로그아웃 요청 중 오류 발생:', error);
+                        });
+                    }
+                }
+
+                // 로그아웃 버튼에 이벤트 리스너 추가
+                document.getElementById('logoutBtn').addEventListener('click', logout);
+
+            </script>
+            <!-- Monitoring Table -->
+            <div id="monitoringTable" class="mt-4">
+                <table class="w-full bg-gray-700 shadow-lg rounded-lg">
+                    <thead class="bg-gray-800">
+                        <tr>
+                            <th class="px-4 py-2 text-left">EQPID</th>
+                            <th class="px-4 py-2 text-left">DEVICE</th>
+                            <th class="px-4 py-2 text-left">LOT-ID</th>
+                            <th class="px-4 py-2 text-left">STEP-ID</th>
+                            <th class="px-4 py-2 text-left">PC-ID</th>
+                            <th class="px-4 py-2 text-left">PB-ID</th>
+                            <th class="px-4 py-2 text-left">USER-ID</th>
+                            <th class="px-4 py-2 text-left">STATUS</th>
+                            <th class="px-4 py-2 text-left">진행률</th>
+                            <th class="px-4 py-2 text-left">RPA_STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monitoringData">
+                    </tbody>
+                </table>
+            </div>
+
+            
+            <!-- Report Confirm Table -->
+            <div id="reportConfirmTable" class="hidden mt-4">
+                <table class="w-full bg-gray-700 shadow-lg rounded-lg">
+                    <thead class="bg-gray-800">
+                        <tr>
+                            <th class="px-4 py-2 text-center">STATUS</th>
+                            <th class="px-4 py-2 text-center">EQPID</th>
+                            <th class="px-4 py-2 text-center">DEVICE</th>
+                            <th class="px-4 py-2 text-center">LOT-ID</th>
+                            <th class="px-4 py-2 text-center">STEP-ID</th>
+                            <th class="px-4 py-2 text-center">PC-ID</th>
+                            <th class="px-4 py-2 text-center">PB-ID</th>
+                            <th class="px-4 py-2 text-center">USER-ID</th>
+                            <th class="px-4 py-2 text-center">START-TIME</th>
+                            <th class="px-4 py-2 text-center">IP</th>
+                            <th class="px-4 py-2 text-center">RPA_STATUS</th>
+                            <th class="px-4 py-2 text-center">Comment</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportConfirmData">
+                    </tbody>
+                </table>
+            </div>
+
+            
+      
+
+            <!-- Loading Position 화면 -->
+            <div id="loadingPositionScreen" class="hidden mt-4">
+                <h2 class="text-2xl font-bold mb-4">Loading Position 차트</h2>
+                <div class="flex space-x-4 mb-4 bg-gray-700 p-4 rounded-lg"></div>
+                
+                <!-- 필터 위젯 -->
+                <div class="flex space-x-4 mb-4 bg-gray-700 p-4 rounded-lg">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-white mb-2">MACHINE</label>
+                        <select id="mcFilter" class="w-full bg-gray-800 text-white rounded p-2 border border-gray-600">
+                            <option value="">전체</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-white mb-2">LOT_ID</label>
+                        <select id="lotFilter" class="w-full bg-gray-800 text-white rounded p-2 border border-gray-600">
+                            <option value="">전체</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-white mb-2">STEP</label>
+                        <select id="stepFilter" class="w-full bg-gray-800 text-white rounded p-2 border border-gray-600">
+                            <option value="">전체</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-white mb-2">DEVICE_PPID</label>
+                        <select id="deviceFilter" class="w-full bg-gray-800 text-white rounded p-2 border border-gray-600">
+                            <option value="">전체</option>
+                        </select>
+                    </div>
+                    <!-- 적용 버튼 -->
+                    <div class="flex items-end">
+                        <button id="applyFilter" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition-colors duration-200">
+                            적용
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 차트 컨테이너 -->
+                <div id="chartContainer" class="hidden mt-4 bg-white p-4 rounded-lg shadow">
+                    <div class="flex flex-wrap justify-between mb-4">
+                        <div class="w-full md:w-1/3 p-2">
+                            <canvas id="loadingPositionChartX"></canvas>
+                        </div>
+                        <div class="w-full md:w-1/3 p-2">
+                            <canvas id="loadingPositionChartY"></canvas>
+                        </div>
+                        <div class="w-full md:w-1/3 p-2">
+                            <canvas id="loadingPositionChartZ"></canvas>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap justify-between">
+                        <div class="w-full md:w-1/3 p-2">
+                            <canvas id="normalDistributionChartX"></canvas>
+                        </div>
+                        <div class="w-full md:w-1/3 p-2">
+                            <canvas id="normalDistributionChartY"></canvas>
+                        </div>
+                        <div class="w-full md:w-1/3 p-2">
+                            <canvas id="normalDistributionChartZ"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                
+                    <div id="chartContainer" class="hidden mt-4 bg-white p-4 rounded-lg shadow">                
+                    <div class="flex flex-wrap justify-between mb-4">
+                      <div class="w-full md:w-1/3 p-2">
+                        <canvas id="loadingPositionChartX"></canvas>
+                      </div>
+                      <div class="w-full md:w-1/3 p-2">
+                        <canvas id="loadingPositionChartY"></canvas>
+                      </div>
+                      <div class="w-full md:w-1/3 p-2">
+                        <canvas id="loadingPositionChartZ"></canvas>
+                      </div>
+                    </div>
+                    <div class="flex flex-wrap justify-between">
+                      <div class="w-full md:w-1/3 p-2">
+                        <canvas id="normalDistributionChartX"></canvas>
+                      </div>
+                      <div class="w-full md:w-1/3 p-2">
+                        <canvas id="normalDistributionChartY"></canvas>
+                      </div>
+                      <div class="w-full md:w-1/3 p-2">
+                        <canvas id="normalDistributionChartZ"></canvas>
+                      </div>
+                    </div>
+                  </div>               
+            </div>
+  
+
+            <!-- Settings Modal -->
+            <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white text-gray-800 rounded-lg p-6 w-1/2">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">대시보드 설정</h2>
+                        <button id="closeSettings" class="text-gray-600 hover:text-gray-800">✕</button>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="border-b pb-4">
+                            <h3 class="font-bold mb-2">그리드 크기</h3>
+                            <select id="gridSize" class="w-full p-2 border rounded">
+                                <option value="3">3열</option>
+                                <option value="4">4열</option>
+                                <option value="5">5열</option>
+                                <option value="6">6열</option>
+                                <option value="7" selected>7열</option>
+                            </select>
+                        </div>
+                        <div class="border-b pb-4">
+                            <h3 class="font-bold mb-2">자동 새로고침</h3>
+                            <div class="flex items-center space-x-4">
+                                <input type="number" id="refreshInterval" min="5" max="60" value="120" class="w-20 p-2 border rounded">
+                                <span>초</span>
+                            </div>
+                        </div>
+                        <div class="border-b pb-4">
+                            <h3 class="font-bold mb-2">알림 설정</h3>
+                            <div class="space-y-2">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="errorNotification" checked>
+                                    <span class="ml-2">오류 발생 시 알림</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="statusNotification" checked>
+                                    <span class="ml-2">상태 변경 시 알림</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-2 mt-6">
+                        <button id="cancelSettings" class="bg-gray-200 px-4 py-2 rounded">닫기</button>
+                        <button id="saveSettings" class="bg-blue-600 text-white px-4 py-2 rounded">저장</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        // 전역 변수 추가 (script 시작 부분에 추가)
+        let globalExcelData = [];
+
+        // 필터 초기화 함수
+        // function initializeFilters(data) {
+        //     const filters = {
+        //         mc: new Set(data.map(row => row['MACHINE'])),
+        //         lot: new Set(data.map(row => row['LOT_ID'])),
+        //         step: new Set(data.map(row => row['STEP'])),
+        //         device: new Set(data.map(row => row['DEVICE_PPID'].substring(0, 7))) // 앞 7자리까지만 사용
+        //     };
+
+        //     Object.entries(filters).forEach(([key, values]) => {
+        //         const select = document.getElementById(`${key}Filter`);
+        //         select.innerHTML = '<option value="">전체</option>';
+        //         [...values].sort().forEach(value => {
+        //             const option = document.createElement('option');
+        //             option.value = value;
+        //             option.textContent = value;
+        //             select.appendChild(option);
+        //         });
+        //     });
+        // }
+
+        // 필터 초기화 함수도 수정 (엑셀 컬럼명 기준으로 필터 초기화)
+        function initializeFilters(data) {
+            const filters = {
+                mc: new Set(data.map(row => row['MACHINE'] || row['M/C'])),
+                lot: new Set(data.map(row => row['LOT_ID'] || row['LOT'])),
+                step: new Set(data.map(row => row['STEP'])),
+                device: new Set(data.map(row => row['DEVICE_PPID'] || row['DEVICE(PPID)']))
+            };
+
+            Object.entries(filters).forEach(([key, values]) => {
+                const select = document.getElementById(`${key}Filter`);
+                if (!select) return;
+                
+                select.innerHTML = '<option value="">전체</option>';
+                [...values].filter(Boolean).sort().forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        // function initializeFilters(data) {
+        //     const filters = {
+        //         mc: new Set(data.map(row => row['MACHINE'])),
+        //         lot: new Set(data.map(row => row['LOT_ID'])),
+        //         step: new Set(data.map(row => row['STEP'])),
+        //         device: new Set(data.map(row => row['DEVICE_PPID']))
+        //     };
+
+        //     Object.entries(filters).forEach(([key, values]) => {
+        //         const select = document.getElementById(`${key}Filter`);
+        //         select.innerHTML = '<option value="">전체</option>';
+        //         [...values].sort().forEach(value => {
+        //             const option = document.createElement('option');
+        //             option.value = value;
+        //             option.textContent = value;
+        //             select.appendChild(option);
+        //         });
+        //     });
+        // }
+
+        // 필터링된 데이터 가져오기
+        function getFilteredData() {
+            const mcFilter = document.getElementById('mcFilter').value;
+            const lotFilter = document.getElementById('lotFilter').value;
+            const stepFilter = document.getElementById('stepFilter').value;
+            const deviceFilter = document.getElementById('deviceFilter').value.substring(0, 7); // 앞 7자리까지만 사용
+
+            return globalExcelData.filter(row => {
+                const matchMc = !mcFilter || row['MACHINE'] === mcFilter;
+                const matchLot = !lotFilter || row['LOT_ID'] === lotFilter;
+                const matchStep = !stepFilter || row['STEP'] === stepFilter;
+                const matchDevice = !deviceFilter || row['DEVICE_PPID'].substring(0, 7) === deviceFilter; // 앞 7자리까지만 비교
+                return matchMc && matchLot && matchStep && matchDevice;
+            });
+        }
+
+        // 메뉴 토글 기능
+        document.getElementById('toggleMenu').addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            const showMenuBtn = document.getElementById('showMenu');
+            const mainContent = document.querySelector('.main-content');
+            sidebar.classList.add('hidden');
+            showMenuBtn.classList.remove('hidden');
+            mainContent.classList.remove('with-sidebar');
+        });
+
+        document.getElementById('showMenu').addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            const showMenuBtn = document.getElementById('showMenu');
+            const mainContent = document.querySelector('.main-content');
+            sidebar.classList.remove('hidden');
+            showMenuBtn.classList.add('hidden');
+            mainContent.classList.add('with-sidebar');
+        });
+
+        // 설정 모달 기능
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        });
+
+        document.getElementById('closeSettings').addEventListener('click', () => {
+            document.getElementById('settingsModal').classList.add('hidden');
+        });
+
+        document.getElementById('cancelSettings').addEventListener('click', () => {
+            document.getElementById('settingsModal').classList.add('hidden');
+        });
+
+        document.getElementById('saveSettings').addEventListener('click', () => {
+            const settings = {
+                gridSize: document.getElementById('gridSize').value,
+                refreshInterval: document.getElementById('refreshInterval').value,
+                notifications: {
+                    error: document.getElementById('errorNotification').checked,
+                    status: document.getElementById('statusNotification').checked
+                }
+            };
+            applySettings(settings);
+            document.getElementById('settingsModal').classList.add('hidden');
+        });
+        
+
+
+        function applySettings(settings) {
+            const grid = document.querySelector('.grid');
+            const monitoringGrid = document.getElementById('monitoringGrid');
+            const monitoringTable = document.getElementById('monitoringTable');
+            
+            // 그리드 크기 설정
+            grid.className = `grid grid-cols-${settings.gridSize} gap-4`;
+            
+            // 현재 화면 상태 유지
+            if (monitoringTable.classList.contains('hidden')) {
+            monitoringGrid.classList.remove('hidden');
+            monitoringTable.classList.add('hidden');
+            } else {
+            monitoringGrid.classList.add('hidden');
+            monitoringTable.classList.remove('hidden');
+            }
+            
+            // 자동 새로고침 설정
+            if (window.refreshInterval) clearInterval(window.refreshInterval);
+            if (settings.refreshInterval > 0) {
+            window.refreshInterval = setInterval(() => {
+                showLoadingAnimation();
+                updateData().finally(hideLoadingAnimation);
+            }, settings.refreshInterval * 1000);
+            }
+            
+            // 설정 저장
+            localStorage.setItem('dashboardSettings', JSON.stringify(settings));
+            
+            // 데이터 업데이트
+            updateData();
+        }
+        
+        // 메인 버튼 기능 제거
+        document.getElementById('mainBtn').style.display = 'none';
+        
+        // 메인 버튼 기능
+        //document.getElementById('mainBtn').addEventListener('click', function() {
+        //    showMonitoringTable();
+        //});
+        
+        // 모니터링 버튼 기능 수정
+        document.getElementById('monitoringBtn').addEventListener('click', function() {
+            showMonitoringGrid();
+        });
+    
+        // Monitoring Table 표시 함수
+        function showMonitoringTable() {
+            const monitoringGrid = document.getElementById('monitoringGrid');
+            const monitoringTable = document.getElementById('monitoringTable');
+            const loadingPositionScreen = document.getElementById('loadingPositionScreen');
+            const reportConfirmTable = document.getElementById('reportConfirmTable');
+            
+            monitoringGrid.classList.add('hidden');
+            monitoringTable.classList.remove('hidden');
+            loadingPositionScreen.classList.add('hidden');
+            reportConfirmTable.classList.add('hidden');
+            updateData();
+          }
+       
+        function showMonitoringGrid() {
+            const monitoringGrid = document.getElementById('monitoringGrid');
+            const monitoringTable = document.getElementById('monitoringTable');
+            const loadingPositionScreen = document.getElementById('loadingPositionScreen');
+            const reportConfirmTable = document.getElementById('reportConfirmTable');
+            
+            monitoringGrid.classList.remove('hidden');
+            monitoringTable.classList.add('hidden');
+            loadingPositionScreen.classList.add('hidden');
+            reportConfirmTable.classList.add('hidden');
+            updateData();
+          }
+
+        // 페이지 로드 시 초기 화면 설정
+        window.addEventListener('load', function() {
+            showMonitoringGrid();
+        });
+
+       
+        // 새로고침 버튼 클릭 이벤트 수정
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+            updateData();
+        });
+        
+        // 새로고침 시간 업데이트 함수
+        function updateRefreshTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('ko-KR');
+            document.getElementById('lastRefreshTime').textContent = `🚴‍♂️마지막 업데이트: ${timeString}`;
+        }
+        
+        // 데이터 업데이트 함수
+        async function updateData() {
+            updateRefreshTime();
+            try {
+            const response = await fetch('/getMonitoringData');
+            const data = await response.json();
+            const monitoringGrid = document.getElementById('monitoringGrid');
+            monitoringGrid.innerHTML = ''; // 기존 내용을 지웁니다.
+            updateMonitoringTable(data); 
+
+            data.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card bg-blue-100 p-4 rounded shadow';
+            card.innerHTML = `
+            <div class="flex justify-between items-center">
+            <h2 class="text-2xl font-bold text-blue-800">${item.EQPID}</h2>
+            <span class="text-sm bg-blue-500 text-white px-3 py-1 rounded-full">${item.ROWNUM}</span> 
+            </div>
+            <span class="text-sm bg-gray-500 text-white px-2 py-1 rounded-full">${item.STATUS}</span>
+            <table class="w-full text-sm text-gray-800 mt-2 border-collapse border border-white">
+            <tr>
+            <td class="font-semibold border border-white p-1">DEVICE:</td>
+            <td class="font-bold border border-white p-1">${item.DEVICE}</td>
+            </tr>
+            <tr>
+            <td class="font-semibold border border-white p-1">LOT-ID:</td>
+            <td class="font-bold border border-white p-1">${item.LOT_ID}</td>
+            </tr>
+            <tr>
+            <td class="font-semibold border border-white p-1">STEP-ID:</td>
+            <td class="font-bold border border-white p-1">${item.STEP_ID}</td>
+            </tr>
+            <tr>
+            <td class="font-semibold border border-white p-1">PC-ID:</td>
+            <td class="font-bold border border-white p-1">${item.PC_ID}</td>
+            </tr>
+            <tr>
+            <td class="font-semibold border border-white p-1">PB-ID:</td>
+            <td class="font-bold border border-white p-1">${item.PB_ID}</td>
+            </tr>
+            <tr>
+            <td class="font-semibold border border-white p-1">USER-ID:</td>
+            <td class="font-bold border border-white p-1">${item.USER_ID}</td>
+            </tr>
+            <tr>
+            <td class="font-semibold border border-white p-1">STATUS:</td>
+            <td class="font-bold border border-white p-1">${item.RPA_STATUS}</td>
+            </tr>
+            </table>
+            <div class="mt-4">
+            <div class="bg-blue-600 text-white py-2 px-4 rounded-t-lg text-center font-semibold">
+            RPA 진행률
+            </div>
+            <div class="progress-bg p-3 rounded-b-lg">
+            <p class="text-sm font-bold text-blue-700 text-center">진행률: ${item.PROGRESS}%</p>
+            <p class="text-sm font-bold text-blue-700 text-center">(${item.PG_DETAIL})</p>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style="width: ${item.PROGRESS}%"></div>
+            </div>
+            </div>
+            </div>
+            `;
+
+            // 상태에 따른 색상 설정
+            let headerColor, bgColor, cardColor, progressBarColor, badgeColor;
+            if (item.RPA_STATUS === 'Wait') {
+            headerColor = 'bg-gray-600';
+            bgColor = 'bg-gray-200';
+            cardColor = 'bg-gray-100';
+            badgeColor = 'bg-gray-500';
+            progressBarColor = 'bg-gray-600';
+            
+            } else if (item.RPA_STATUS === 'Error') {
+            headerColor = 'bg-red-600';
+            bgColor = 'bg-red-200';
+            cardColor = 'bg-red-100';
+            badgeColor = 'bg-red-500';
+            progressBarColor = 'bg-red-600';
+            
+            // "Error 메시지 확인" 버튼 추가
+            const errorButton = document.createElement('button');
+            errorButton.textContent = 'Error 메시지 확인';
+            errorButton.className = 'bg-red-500 text-white px-3 py-1 rounded-full text-sm mr-1';
+            errorButton.addEventListener('click', (e) => {
+                e.stopPropagation(); // 카드 클릭 이벤트가 발생하지 않도록 방지
+                
+                // 로딩 애니메이션 표시
+                showLoadingAnimation('에러 정보를 가져오는 중...');
+                
+                // 서버에 에러 상세 정보 요청
+                fetch(`/getErrorDetails?eqpid=${encodeURIComponent(item.EQPID)}&lotId=${encodeURIComponent(item.LOT_ID)}&status=${encodeURIComponent(item.STATUS)}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('서버 응답 오류');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // 에러 정보 모달 생성
+                        const errorModal = document.createElement('div');
+                        errorModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                        errorModal.innerHTML = `
+                            <div class="bg-white text-gray-800 rounded-lg p-6 w-3/4 max-h-3/4 overflow-auto">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-xl font-bold text-red-600">에러 상세 정보</h3>
+                                    <button id="closeErrorModal" class="text-gray-600 hover:text-gray-900">&times;</button>
+                                </div>
+                                <div class="overflow-auto max-h-96">
+                                    <table class="w-full border-collapse border border-gray-300">
+                                        <thead class="bg-gray-200">
+                                            <tr>
+                                                ${data.length > 0 ? Object.keys(data[0]).map(key => 
+                                                    `<th class="border border-gray-300 px-4 py-2">${key}</th>`).join('') : ''}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${data.map(row => `
+                                                <tr class="hover:bg-gray-100">
+                                                    ${Object.values(row).map(value => 
+                                                        `<td class="border border-gray-300 px-4 py-2">${value || ''}</td>`).join('')}
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="flex justify-end mt-4">
+                                    <button id="confirmErrorModal" class="bg-red-600 text-white px-4 py-2 rounded">확인</button>
+                                </div>
+                            </div>
+                        `;
+                        
+                        document.body.appendChild(errorModal);
+                        
+                        // 모달 닫기 버튼 이벤트
+                        document.getElementById('closeErrorModal').addEventListener('click', () => {
+                            errorModal.remove();
+                        });
+                        
+                        // 확인 버튼 이벤트
+                        document.getElementById('confirmErrorModal').addEventListener('click', () => {
+                            errorModal.remove();
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching error details:', error);
+                        alert('에러 정보를 가져오는 중 문제가 발생했습니다.');
+                    })
+                    .finally(() => {
+                        hideLoadingAnimation();
+                    });
+            });
+
+            //  Error 버튼의 위치를 STATUS 태그 바로 오른쪽에 위치
+            const statusSpan = card.querySelector('span.text-sm[class*="bg-gray-500"]');
+            statusSpan.insertAdjacentElement('afterend', errorButton);
+        }
+
+             else if (item.RPA_STATUS === 'Check') {
+            headerColor = 'bg-yellow-600';
+            bgColor = 'bg-yellow-200';
+            cardColor = 'bg-yellow-100';
+            badgeColor = 'bg-yellow-500';
+            progressBarColor = 'bg-yellow-600';
+            } else if (item.RPA_STATUS === 'OM') {
+            headerColor = 'bg-blue-600';
+            bgColor = 'bg-blue-200';
+            cardColor = 'bg-blue-100';
+            badgeColor = 'bg-blue-500';
+            progressBarColor = 'bg-blue-600';
+            }
+            else {
+            headerColor = 'bg-green-600';
+            bgColor = 'bg-green-200';
+            cardColor = 'bg-green-100';
+            badgeColor = 'bg-green-500';
+            progressBarColor = 'bg-green-600';
+            }
+
+
+            // 번호 배지 색상 변경
+            const numberBadge = card.querySelector('.text-sm');
+            numberBadge.className = `text-sm ${badgeColor} text-white px-3 py-1 rounded-full`;
+
+
+            // 색상 변경 로직
+            card.className = `${cardColor} p-4 rounded shadow card`;
+            const progressHeader = card.querySelector('div.bg-blue-600, div.bg-gray-600, div.bg-red-600');
+            progressHeader.className = `${headerColor} text-white py-2 px-4 rounded-t-lg text-center font-semibold`;
+            const progressBg = card.querySelector('.progress-bg');
+            progressBg.className = `progress-bg ${bgColor} p-3 rounded-b-lg`;
+
+            // 프로그레스 바 색상 업데이트
+            const progressBar = progressBg.querySelector('div.bg-blue-600, div.bg-gray-600, div.bg-red-600');
+            if (progressBar) {
+            progressBar.className = `${progressBarColor} h-2.5 rounded-full transition-all duration-500`;
+            }
+
+            // 카드 클릭 시 모달 열기
+            card.addEventListener('click', () => {
+            openModal(item.EQPID);
+            });
+
+            monitoringGrid.appendChild(card);
+            });
+            updateMonitoringTable(data);
+            if (!document.getElementById('reportConfirmTable').classList.contains('hidden')) {
+            updateReportConfirmTable(data); // Report Confirm Table도 업데이트
+            }
+            } catch (error) {
+            console.error('Error fetching monitoring data:', error);
+            }
+        }
+
+        // 전역 변수 정의
+        let globalItem = null;
+    
+        // 모달 열기 함수
+        async function openModal(eqpid) {
+            try {
+                const response = await fetch('/getMonitoringData');
+                const data = await response.json();
+                const item = data.find(item => item.EQPID === eqpid);
+    
+                if (!item) {
+                    throw new Error('해당 장비 ID를 찾을 수 없습니다.');
+                }
+    
+                globalItem = item; // 전역 변수에 저장
+    
+                const { IP, DATE_, RPA_STATUS, STATUS_CHANGE_TIME, STATUS, DEVICE, LOT_ID, EQPID  } = item;
+    
+                // 서버에 globalItem 설정 요청
+                await fetch('/setGlobalItem', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(item)
+                });
+    
+                const modal = document.createElement('div');
+                modal.id = 'modal';
+                modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                modal.innerHTML = `
+                <div class="bg-white text-gray-800 rounded-lg p-6 w-1/3 shadow-lg">
+                    <h2 class="text-xl font-bold mb-4">Summary 정보</h2>
+                    <div class="p-4 bg-gray-100 rounded-lg shadow-md">
+                    <table class="w-full text-center">
+                        <tr>
+                        <td class="font-bold text-gray-700">Equipment ID:</td>
+                        <td class="text-gray-600">${EQPID}</td>
+                        </tr>
+                        <tr>
+                        <td class="font-bold text-gray-700">Device:</td>
+                        <td class="text-gray-600">${DEVICE}</td>
+                        </tr>
+                        <tr>
+                        <td class="font-bold text-gray-700">LOT_ID:</td>
+                        <td class="text-gray-600">${LOT_ID}</td>
+                        </tr>
+                        <tr>
+                        <td class="font-bold text-gray-700">Internet Protocol:</td>
+                        <td class="text-gray-600">${IP}</td>
+                        </tr>
+                        <tr>
+                        <td class="font-bold text-gray-700">Start Time:</td>
+                        <td class="text-gray-600">${DATE_}</td>
+                        </tr>
+                        <tr>
+                        <td class="font-bold text-gray-700">Processing Time:</td>
+                        <td class="text-gray-600" id="elapsedTime">계산 중...</td>
+                        </tr>
+                        <tr>
+                        <td class="font-bold text-gray-700">Operation Mode:</td>
+                        <td class="text-gray-600">${RPA_STATUS}</td>
+                        </tr>
+                    </table>
+                    <div class="flex justify-center space-x-4 mt-4">
+                        <button id="startBtn" class="w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-transform transform hover:scale-110 shadow-lg">
+                        ${RPA_STATUS === 'Run' ? getPauseIcon() : getPlayIcon()}
+                        </button>
+                        <button id="stopBtn" class="bg-red-500 text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-transform transform hover:scale-110 shadow-lg">■</button>
+                        ${RPA_STATUS === 'Wait' ? `
+                        <button id="finishBtn" class="w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-transform transform hover:scale-110 shadow-lg">
+                            ${getDocumentIcon()}
+                        </button>` : ''} <!-- STATUS가 "Wait"일 때만 finishBtn 버튼 표시 -->
+                    </div>
+                    <div class="flex justify-end mt-4">
+                        <button id="closeModal" class="bg-gray-600 text-white px-4 py-2 rounded shadow-lg">닫기</button>
+                    </div>
+                    </div>
+                </div>
+                `;
+    
+                document.body.appendChild(modal);
+    
+                // 모달 닫기 버튼 이벤트 리스너
+                document.getElementById('closeModal').addEventListener('click', () => {
+                    modal.remove();
+                    clearInterval(timerInterval); // 타이머 정지
+                });
+    
+                // 소요 시간 업데이트 함수
+                function updateElapsedTime() {
+                    const startTime = new Date(DATE_);
+                    const currentTime = new Date();
+                    const elapsedTime = currentTime - startTime;
+    
+                    const hours = Math.floor(elapsedTime / (1000 * 60 * 60));
+                    const minutes = Math.floor((elapsedTime % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((elapsedTime % (1000 * 60)) / 1000);
+    
+                    document.getElementById('elapsedTime').textContent = `${hours}시간 ${minutes}분 ${seconds}초`;
+                }
+    
+                // 타이머 시작
+                const timerInterval = setInterval(() => {
+                    updateElapsedTime();
+                }, 1000);
+                updateElapsedTime(); // 모달이 열릴 때 즉시 업데이트
+    
+                // startBtn 클릭 이벤트 리스너
+                document.getElementById('startBtn').addEventListener('click', () => {
+                    if (item.RPA_STATUS === 'Check' || item.RPA_STATUS === 'Error') {
+                        const confirmModal = document.createElement('div');
+                        confirmModal.id = 'confirmModal';
+                        confirmModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                        confirmModal.innerHTML = `
+                        <div class="bg-white text-gray-800 rounded-lg p-6 w-1/3 shadow-lg">
+                        <h2 class="text-xl font-bold mb-4">확인 요청</h2>
+                        <p class="mb-4">${item.RPA_STATUS === 'Check' ? 'Contact Setup 설정이 완료되었습니까?' : '오류 사항을 확인하셨습니까?'}</p>
+                        <p class="mb-4">확인을 클릭하시면 조치 내용 입력창으로 이동합니다.</p>
+                        <div class="flex justify-end space-x-4">
+                            <button id="confirmYes" class="bg-green-500 text-white px-4 py-2 rounded shadow-lg">확인</button>
+                            <button id="confirmNo" class="bg-red-500 text-white px-4 py-2 rounded shadow-lg">취소</button>
+                        </div>
+                        </div>
+                        `;
+    
+                        document.body.appendChild(confirmModal);
+    
+                        // 확인 버튼 클릭 이벤트 리스너
+                        // document.getElementById('confirmYes').addEventListener('click', async () => {
+                        //     try {
+                        //         const response = await fetch('/updateStatus', {
+                        //             method: 'POST',
+                        //             headers: {
+                        //                 'Content-Type': 'application/json'
+                        //             },
+                        //             body: JSON.stringify({ eqpid: item.EQPID, startTime: item.DATE_ })
+                        //         });
+    
+                        //         if (response.ok) {
+                        //             confirmModal.remove();
+                        //             alert('RPA 상태가 변경되었습니다.');
+                        //             updateData(); // 데이터 갱신
+                        //         } else {
+                        //             const errorText = await response.text();
+                        //             alert(`상태 변경에 실패했습니다: ${errorText}`);
+                        //         }
+                        //     } catch (error) {
+                        //         console.error('Error updating status:', error);
+                        //         alert('상태 변경 중 오류가 발생했습니다.');
+                        //     }
+                        // });
+    
+                        // // 취소 버튼 클릭 이벤트 리스너
+                        // document.getElementById('confirmNo').addEventListener('click', () => {
+                        //     confirmModal.remove();
+                        // });
+
+                        document.getElementById('confirmYes').addEventListener('click', async () => {
+                            // Error 상태일 때만 추가 모달 표시
+                            if (item.RPA_STATUS === 'Error') {
+                                confirmModal.remove(); // 기존 확인 모달 닫기
+                                
+                                // 새로운 사유 선택 모달 생성
+                                const reasonModal = document.createElement('div');
+                                reasonModal.id = 'reasonModal';
+                                reasonModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                                reasonModal.innerHTML = `
+                                <div class="bg-white text-gray-800 rounded-lg p-6 w-1/2 shadow-lg">
+                                    <h2 class="text-xl font-bold mb-4">조치 내용 등록</h2>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <div class="flex items-center space-x-2">
+                                                <input type="checkbox" id="reasonProbeCard" class="reason-checkbox">
+                                                <label for="reasonProbeCard">P/C 교체</label>
+                                            </div>
+                                            <div class="flex items-center space-x-2 mt-2">
+                                                <input type="checkbox" id="reasonLot" class="reason-checkbox">
+                                                <label for="reasonLot">LOT 교체</label>
+                                            </div>
+                                            <div class="flex items-center space-x-2 mt-2">
+                                                <input type="checkbox" id="reasonOther" class="reason-checkbox">
+                                                <label for="reasonOther">기타</label>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="reasonDetail" class="block text-gray-700 text-sm font-bold mb-2">상세 내용</label>
+                                            <textarea id="reasonDetail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" rows="4" placeholder="상세 내용을 입력하세요"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-end space-x-4 mt-6">
+                                        <button id="submitReason" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded shadow-lg">제출</button>
+                                        <button id="cancelReason" class="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded shadow-lg">취소</button>
+                                    </div>
+                                </div>
+                                `;
+
+                                document.body.appendChild(reasonModal);
+
+                                // 체크박스 선택 시 다른 체크박스 해제
+                                const checkboxes = reasonModal.querySelectorAll('.reason-checkbox');
+                                checkboxes.forEach(checkbox => {
+                                    checkbox.addEventListener('change', function() {
+                                        if(this.checked) {
+                                            checkboxes.forEach(cb => {
+                                                if(cb !== this) cb.checked = false;
+                                            });
+                                        }
+                                    });
+                                });
+
+                                // 취소 버튼 클릭 이벤트
+                                document.getElementById('cancelReason').addEventListener('click', () => {
+                                    reasonModal.remove();
+                                });
+
+                                // 제출 버튼 클릭 이벤트
+                                document.getElementById('submitReason').addEventListener('click', async () => {
+                                    let selectedReason = '';
+                                    if(document.getElementById('reasonProbeCard').checked) {
+                                        selectedReason = 'P/C 교체';
+                                    } else if(document.getElementById('reasonLot').checked) {
+                                        selectedReason = 'LOT 교체';
+                                    } else if(document.getElementById('reasonOther').checked) {
+                                        selectedReason = '기타';
+                                    }
+
+                                    const reasonDetail = document.getElementById('reasonDetail').value.trim();
+
+                                    if(!selectedReason) {
+                                        alert('조치 내용을 선택해주세요.');
+                                        return;
+                                    }
+
+                                    if(!reasonDetail) {
+                                        alert('상세 내용을 입력해주세요.');
+                                        return;
+                                    }
+
+                                    try {
+                                        // 로딩 표시
+                                        showLoadingAnimation('상태 변경 중...');
+                                        
+                                        // 사유 정보와 함께 상태 변경 API 호출
+                                        const response = await fetch('/updateStatusWithReason', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            },
+                                            body: JSON.stringify({ 
+                                                eqpid: item.EQPID, 
+                                                startTime: item.DATE_,
+                                                reason: selectedReason,
+                                                detail: reasonDetail
+                                            })
+                                        });
+
+                                        if (response.ok) {
+                                            reasonModal.remove();
+                                            alert('RPA 상태가 변경되었습니다.');
+                                            updateData(); // 데이터 갱신
+                                        } else {
+                                            const errorText = await response.text();
+                                            alert(`상태 변경에 실패했습니다: ${errorText}`);
+                                        }
+                                    } catch (error) {
+                                        console.error('Error updating status:', error);
+                                        alert('상태 변경 중 오류가 발생했습니다.');
+                                    } finally {
+                                        hideLoadingAnimation();
+                                    }
+                                });
+                            } else {
+                                // Check 상태일 때는 기존 로직 사용
+                                try {
+                                    const response = await fetch('/updateStatus', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({ eqpid: item.EQPID, startTime: item.DATE_ })
+                                    });
+
+                                    if (response.ok) {
+                                        confirmModal.remove();
+                                        alert('RPA 상태가 변경되었습니다.');
+                                        updateData(); // 데이터 갱신
+                                    } else {
+                                        const errorText = await response.text();
+                                        alert(`상태 변경에 실패했습니다: ${errorText}`);
+                                    }
+                                } catch (error) {
+                                    console.error('Error updating status:', error);
+                                    alert('상태 변경 중 오류가 발생했습니다.');
+                                }
+                            }
+                        });
+
+                        // 취소 버튼 클릭 이벤트 리스너
+                        document.getElementById('confirmNo').addEventListener('click', () => {
+                            confirmModal.remove();
+                        });
+                    } else {
+                        alert('STATUS가 "Check" 상태일 때만 활성화됩니다.');
+                    }
+                });
+    
+                // startBtn 이미지 토글 함수
+                function toggleStartBtnImage() {
+                    const startBtn = document.getElementById('startBtn');
+                    startBtn.innerHTML = item.RPA_STATUS === 'Run' ? getPauseIcon() : getPlayIcon();
+                }
+    
+                // startBtn 이미지 초기 설정
+                toggleStartBtnImage();
+    
+                // finishBtn 클릭 이벤트 리스너 추가
+                const finishBtn = document.getElementById('finishBtn');
+                if (finishBtn) {
+                    finishBtn.addEventListener('click', () => {
+                        if (item.RPA_STATUS === 'Wait') { // STATUS가 "Wait"일 때만 모달 열기
+                            const finishModal = document.createElement('div');
+                            finishModal.id = 'finishModal';
+                            finishModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                            finishModal.innerHTML = `
+                            <div class="bg-white text-gray-800 rounded-lg p-6 w-full h-full shadow-lg overflow-auto"> <!-- 전체 화면 크기로 변경 -->
+                                <iframe id="reportFrame" src="/report" class="w-full h-full"></iframe>
+                                <div class="flex justify-end mt-4">
+                                    <button id="closeFinishModal" class="bg-gray-600 text-white px-4 py-2 rounded shadow-lg">닫기</button>
+                                </div>
+                            </div>
+                            `;
+    
+                            document.body.appendChild(finishModal);
+    
+                            // 모달 닫기 버튼 이벤트 리스너
+                            document.getElementById('closeFinishModal').addEventListener('click', () => {
+                                finishModal.remove();
+                            });
+    
+                            // 데이터 전달
+                            const reportFrame = document.getElementById('reportFrame');
+                            reportFrame.onload = function() {
+                                const reportWindow = reportFrame.contentWindow;
+                                reportWindow.postMessage({
+                                    eqpid: item.EQPID,
+                                    date: item.DATE_
+                                }, '*');
+                            };
+                        } else {
+                            alert('STATUS가 "Wait" 상태일 때만 Report를 추출할 수 있습니다.');
+                        }
+                    });
+    
+                    window.addEventListener('message', function(event) {
+                        if (event.data.action === 'closeFinishModal') {
+                            const finishModal = document.getElementById('finishModal');
+                            if (finishModal) {
+                                finishModal.remove();
+                            }
+                            const modal = document.getElementById('modal');
+                            if (modal) {
+                                modal.remove();
+                            }
+                            // MonitoringGrid 항목 숨기기
+                            const eqpid = event.data.eqpid;
+                            const card = document.querySelector(`.card[data-eqpid="${eqpid}"]`);
+                            if (card) {
+                                card.style.display = 'none';
+                            }
+                        }
+                    });
+                }
+    
+                // 'stopBtn' 버튼 클릭 이벤트 리스너 추가
+                document.getElementById('stopBtn').addEventListener('click', function() {
+                    if (confirm('강제 종료하시겠습니까?')) {
+                        // 강제 종료가 확인되면 사번 입력 모달을 띄움
+                        const employeeIdModal = document.createElement('div');
+                        employeeIdModal.id = 'employeeIdModal';
+                        employeeIdModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                        employeeIdModal.innerHTML = `
+                            <div class="bg-white text-gray-800 rounded-lg p-6 w-full max-w-md shadow-lg">
+                                <div class="flex justify-end">
+                                    <button id="closeEmployeeIdModal" class="text-gray-600 hover:text-gray-900">&times;</button>
+                                </div>
+                                <p class="text-center text-lg font-bold mb-4">사번을 입력하세요.</p>
+                                <input type="text" id="employeeIdInput" placeholder="8자리 숫자" class="w-full p-2 border border-gray-300 rounded mb-4">
+                                <div class="flex justify-center">
+                                    <button id="confirmEmployeeIdBtn" class="bg-blue-500 text-white px-4 py-2 rounded">확인</button>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(employeeIdModal);
+    
+                        // 모달 닫기 버튼 이벤트 리스너
+                        document.getElementById('closeEmployeeIdModal').addEventListener('click', () => {
+                            employeeIdModal.remove();
+                        });
+    
+                        // 확인 버튼 클릭 이벤트 리스너
+                        document.getElementById('confirmEmployeeIdBtn').addEventListener('click', async () => {
+                            const employeeId = document.getElementById('employeeIdInput').value;
+                            const idPattern = /^\d{8}$/; // 8자리 숫자 패턴
+                            if (idPattern.test(employeeId)) {
+                                console.log('강제 종료가 확인되었습니다.');
+                                console.log('입력된 사번:', employeeId);
+                                employeeIdModal.remove();
+    
+                                // 강제 종료 로직 추가
+                                try {
+                                    const response = await fetch('/updateStatus_2', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({ eqpid: item.EQPID, startTime: item.DATE_, status: 'End', finally: 'Ok', userId: employeeId })
+                                    });
+    
+                                    if (response.ok) {
+                                        alert('RPA 상태가 "End"로 변경되었고, FINALLY 값이 "Ok"로 설정되었습니다. 유의하여 메뉴얼 진행 부탁드립니다.');
+                                        updateData(); // 데이터 갱신
+                                    } else {
+                                        const errorText = await response.text();
+                                        alert(`상태 변경에 실패했습니다: ${errorText}`);
+                                    }
+                                } catch (error) {
+                                    console.error('Error updating status:', error);
+                                    alert('상태 변경 중 오류가 발생했습니다.');
+                                }
+                            } else {
+                                alert('사번은 8자리 숫자여야 합니다. 다시 입력해주세요.');
+                            }
+                        });
+                    } else {
+                        console.log('강제 종료가 취소되었습니다.');
+                    }
+                });
+    
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                alert('데이터를 가져오는 중 오류가 발생했습니다.');
+            }
+        }
+    
+        // 재생 아이콘 함수
+        function getPlayIcon() {
+            return `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                <path fill-rule="evenodd" d="M4.5 3.75a.75.75 0 011.125-.65l13.5 8.25a.75.75 0 010 1.3l-13.5 8.25A.75.75 0 014.5 20.25v-15z" clip-rule="evenodd" />
+            </svg>
+            `;
+        }
+    
+        // 일시 정지 아이콘 함수
+        function getPauseIcon() {
+            return `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                <path fill-rule="evenodd" d="M6.75 3.75A.75.75 0 017.5 3h2.25a.75.75 0 01.75.75v16.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V3.75zm7.5 0A.75.75 0 0115 3h2.25a.75.75 0 01.75.75v16.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V3.75z" clip-rule="evenodd" />
+            </svg>
+            `;
+        }
+    
+        // 문서 아이콘 함수 (finishBtn)
+        function getDocumentIcon() {
+            return `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+            <path d="M6 2a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8.414a2 2 0 00-.586-1.414l-5.414-5.414A2 2 0 0012.586 2H6zm6 1.414L17.586 7H14a2 2 0 01-2-2V3.414zM7 10h10v2H7v-2zm0 4h10v2H7v-2zm0 4h7v2H7v-2z" />
+            </svg>
+            `;
+        }
+        
+        function updateMonitoringTable(data) {
+            const monitoringTable = document.getElementById('monitoringTable');
+            if (!monitoringTable.classList.contains('hidden')) {
+                const tbody = document.getElementById('monitoringData');
+                tbody.innerHTML = '';
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="border border-gray-600 px-4 py-2">${item.EQPID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.DEVICE}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.LOT_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.STEP_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.PC_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.PB_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.USER_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">
+                            <div class="bg-gray-400 text-gray-800 px-2 py-1 rounded text-center">
+                                ${item.STATUS}
+                            </div>
+                        </td>
+                        <td class="border border-gray-600 px-4 py-2">
+                            <div class="bg-gray-400 text-gray-800 px-2 py-1 rounded text-center">
+                                ${item.PROGRESS}%
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+        }
+
+        async function updateReportConfirmTable() {
+            try {
+                const response = await fetch('/getWaitData');
+                const data = await response.json();
+                const tbody = document.getElementById('reportConfirmData');
+                tbody.innerHTML = '';
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="border border-gray-600 px-4 py-2">${item.STATUS}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.EQPID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.DEVICE}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.LOT_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.STEP_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.PC_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.PB_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.USER_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.DATE_}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.IP}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.ROWNUM}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.RPA_STATUS}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.PROGRESS}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.PG_DETAIL}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error fetching wait data:', error);
+            }
+        }
+
+        // Loading Position 버튼 이벤트 리스너
+        document.getElementById('loadingPositionBtn').addEventListener('click', loadPositionData);
+        // loadingPositionBtn의 클릭 이벤트 핸들러 함수 수정
+        async function loadPositionData() {
+            try {
+                // OracleDB에서 데이터 가져오기
+                const response = await fetch('/getSummaryReport');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // JSON 데이터 파싱
+                const data = await response.json();
+                
+                // 컬럼명 매핑 로직 추가 (DB 컬럼명을 엑셀 컬럼명으로 매핑)
+                const mappedData = data.map(item => {
+                    // 원본 객체를 복사하여 새로운 객체 생성
+                    const mappedItem = { ...item };
+                    
+                    // 컬럼명 매핑 정의
+                    const columnMapping = {
+                        'START_TIME': 'START TIME',
+                        'END_TIME': 'END TIME',
+                        'RUN_TIME': 'RUN TIME',
+                        'SORT_TYPE': 'SORT',
+                        'MACHINE': 'M/C',
+                        'LOT_ID': 'LOT',
+                        'SLOT': 'SLOT',  // 이미 동일함
+                        'STEP': 'STEP',  // 이미 동일함
+                        'DEVICE_PPID': 'DEVICE(PPID)',
+                        'WAFER_LOADING_POS_X': 'Wafer Loading Posi (X)',
+                        'WAFER_LOADING_POS_Y': 'Wafer Loading Posi (Y)',
+                        'WAFER_LOADING_POS_Z': 'Wafer Loading Posi (Z)'
+                    };
+                    
+                    // 매핑된 객체에 원래 키와 매핑된 키 모두 추가 (호환성 유지)
+                    Object.keys(columnMapping).forEach(dbKey => {
+                        if (item[dbKey] !== undefined) {
+                            // DB 컬럼명은 유지하되, 엑셀 컬럼명으로도 동일한 값에 접근 가능하게 함
+                            mappedItem[columnMapping[dbKey]] = item[dbKey];
+                        }
+                    });
+                    
+                    return mappedItem;
+                });
+                
+                // 필터링 로직 유지 (엑셀 컬럼명으로 필터링)
+                globalExcelData = filterData(mappedData);
+
+                if (globalExcelData.length === 0) {
+                    alert('필터링된 데이터가 없습니다.');
+                    return;
+                }
+
+                // 화면 전환 및 필터 초기화
+                showLoadingPositionScreen();
+                initializeFilters(globalExcelData);
+                createChart(globalExcelData);
+
+                const applyButton = document.getElementById('applyFilter');
+                if (applyButton) {
+                applyButton.removeEventListener('click', applyFilters);
+                applyButton.addEventListener('click', applyFilters);
+                }
+                
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                alert('데이터를 가져오는 중 오류가 발생했습니다.');
+            }
+        }
+
+        // async function loadPositionData() {
+        //     try {
+        //         // OracleDB에서 데이터 가져오기
+        //         const response = await fetch('/getSummaryReport');
+        //         if (!response.ok) {
+        //             throw new Error(`HTTP error! status: ${response.status}`);
+        //         }
+
+        //         // JSON 데이터 파싱
+        //         const data = await response.json();
+        //         globalExcelData = filterData(data);
+
+        //         if (globalExcelData.length === 0) {
+        //             alert('필터링된 데이터가 없습니다.');
+        //             return;
+        //         }
+
+        //         // 화면 전환 및 필터 초기화
+        //         showLoadingPositionScreen();
+        //         initializeFilters(globalExcelData);
+        //         createChart(globalExcelData);
+
+        //         const applyButton = document.getElementById('applyFilter');
+        //         applyButton.removeEventListener('click', applyFilters);
+        //         applyButton.addEventListener('click', applyFilters);
+
+        //     } catch (error) {
+        //         console.error('Error fetching data:', error);
+        //         alert('데이터를 가져오는 중 오류가 발생했습니다.');
+        //     }
+        // }
+        
+
+        
+
+        // function applyFilters() {
+        //     const mcFilter = document.getElementById('mcFilter').value;
+        //     const lotFilter = document.getElementById('lotFilter').value;
+        //     const stepFilter = document.getElementById('stepFilter').value;
+        //     const deviceFilter = document.getElementById('deviceFilter').value;
+
+        //     const filteredData = globalExcelData.filter(row => {
+        //         const matchMc = !mcFilter || row['MACHINE'] === mcFilter;
+        //         const matchLot = !lotFilter || row['LOT_ID'] === lotFilter;
+        //         const matchStep = !stepFilter || row['STEP'] === stepFilter;
+        //         const matchDevice = !deviceFilter || row['DEVICE_PPID'] === deviceFilter;
+        //         return matchMc && matchLot && matchStep && matchDevice;
+        //     });
+
+        //     createChart(filteredData);
+        // } 
+        
+        
+        function getFilteredData() {
+            const mcFilter = document.getElementById('mcFilter').value;
+            const lotFilter = document.getElementById('lotFilter').value;
+            const stepFilter = document.getElementById('stepFilter').value;
+            const deviceFilter = document.getElementById('deviceFilter').value.substring(0, 7); // 앞 7자리까지만 사용
+        
+            return globalExcelData.filter(row => {
+            const matchMc = !mcFilter || row['MACHINE'] === mcFilter;
+            const matchLot = !lotFilter || row['LOT_ID'] === lotFilter;
+            const matchStep = !stepFilter || row['STEP'] === stepFilter;
+            const matchDevice = !deviceFilter || row['DEVICE_PPID'].substring(0, 7) === deviceFilter; // 앞 7자리까지만 비교
+            return matchMc && matchLot && matchStep && matchDevice;
+            });
+        }
+        
+        // 필터 적용 함수도 수정
+        function applyFilters() {
+            const mcFilter = document.getElementById('mcFilter').value;
+            const lotFilter = document.getElementById('lotFilter').value;
+            const stepFilter = document.getElementById('stepFilter').value;
+            const deviceFilter = document.getElementById('deviceFilter').value;
+
+            const filteredData = globalExcelData.filter(row => {
+                // DB 컬럼명과 엑셀 컬럼명 모두 확인
+                const matchMc = !mcFilter || (row['MACHINE'] === mcFilter || row['M/C'] === mcFilter);
+                const matchLot = !lotFilter || (row['LOT_ID'] === lotFilter || row['LOT'] === lotFilter);
+                const matchStep = !stepFilter || row['STEP'] === stepFilter;
+                const matchDevice = !deviceFilter || (row['DEVICE_PPID'] === deviceFilter || row['DEVICE(PPID)'] === deviceFilter);
+                
+                return matchMc && matchLot && matchStep && matchDevice;
+            });
+
+            createChart(filteredData);
+        }
+           
+
+          function showLoadingPositionScreen() {
+            const monitoringGrid = document.getElementById('monitoringGrid');
+            const monitoringTable = document.getElementById('monitoringTable');
+            const loadingPositionScreen = document.getElementById('loadingPositionScreen');
+            const reportConfirmTable = document.getElementById('reportConfirmTable');
+            
+            monitoringGrid.classList.add('hidden');
+            monitoringTable.classList.add('hidden');
+            loadingPositionScreen.classList.remove('hidden');
+            reportConfirmTable.classList.add('hidden');
+          }
+          
+    
+          function readExcelFile(file) {
+            return new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                try {
+                  const data = new Uint8Array(event.target.result);
+                  const workbook = XLSX.read(data, { type: 'array' });
+                  const firstSheetName = workbook.SheetNames[0];
+                  const worksheet = workbook.Sheets[firstSheetName];
+                  const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                  resolve(jsonData);
+                } catch (error) {
+                  reject(error);
+                }
+              };
+              reader.onerror = reject;
+              reader.readAsArrayBuffer(file);
+            });
+          }
+                
+          
+        // 필터링 함수도 수정 (엑셀 컬럼명 기준으로 필터링)
+        function filterData(data) {
+            return data.filter(row => {
+                // DB 컬럼명과 엑셀 컬럼명 모두 확인
+                const sortType = row['SORT_TYPE'] || row['SORT'];
+                return ['LOT_CHANGE', 'CONVERSION', 'MONITORING'].includes(sortType);
+            });
+        }
+        
+
+        function createChart(data) {
+            const axes = ['X', 'Y', 'Z'];
+            const machines = [...new Set(data.map(row => row['MACHINE']))];
+            
+            axes.forEach(axis => {
+                const ctxLine = document.getElementById(`loadingPositionChart${axis}`).getContext('2d');
+                const ctxNormal = document.getElementById(`normalDistributionChart${axis}`).getContext('2d');
+        
+                if (window[`chart${axis}`]) {
+                    window[`chart${axis}`].destroy();
+                }
+                if (window[`normalChart${axis}`]) {
+                    window[`normalChart${axis}`].destroy();
+                }
+        
+                const datasets = machines.map(machine => {
+                    const machineData = data.filter(row => 
+                        row['MACHINE'] === machine && 
+                        row[`Wafer Loading Posi (${axis})`] !== null && 
+                        row['LOT_ID'] !== null && 
+                        row['STEP'] !== null &&
+                        row['DEVICE_PPID'] !== null // "DEVICE_PPID" 컬럼값이 null일 때 제외
+                    );
+                    const color = getRandomColor();
+                    return {
+                        label: `${machine}`,
+                        data: machineData.map(row => row[`Wafer Loading Posi (${axis})`]),
+                        borderColor: color,
+                        backgroundColor: color,
+                        fill: false,
+                        trendlineLinear: {
+                            style: "rgba(255,105,180, .8)",
+                            lineStyle: "dotted",
+                            width: 2
+                        }
+                    };
+                });
+        
+                window[`chart${axis}`] = new Chart(ctxLine, {
+                    type: 'line',
+                    data: {
+                        labels: data.map((_, index) => index + 1),
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        title: {
+                            display: true,
+                            text: `Wafer Loading Position (${axis})`
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'Measurement'
+                                }
+                            },
+                            y: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: `Position (${axis})`
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true
+                            },
+                            trendlineLinear: {
+                                color: "rgba(255,105,180, .8)",
+                                lineStyle: "dotted",
+                                width: 2
+                            }
+                        }
+                    }
+                })
+        
+                // 정규분포 그래프 생성
+                const normalDatasets = datasets.map(dataset => {
+                    const allData = dataset.data;
+                    const mean = allData.reduce((sum, value) => sum + value, 0) / allData.length;
+                    const stdDev = Math.sqrt(allData.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / allData.length);
+                    const normalDistribution = generateNormalDistribution(mean, stdDev);
+                    return {
+                        label: `${dataset.label} - μ: ${mean.toFixed(3)}`,
+                        data: normalDistribution,
+                        borderColor: dataset.borderColor,
+                        backgroundColor: dataset.backgroundColor,
+                        fill: true,
+                        parsing: {
+                            xAxisKey: 'x',
+                            yAxisKey: 'y'
+                        }
+                    };
+                });
+        
+                window[`normalChart${axis}`] = new Chart(ctxNormal, {
+                    type: 'line',
+                    data: {
+                        datasets: normalDatasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Normal Distribution (${axis})`
+                            },
+                            legend: {
+                                display: true
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                position: 'bottom',
+                                title: {
+                                    display: true,
+                                    text: `Position (${axis})`
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Probability Density'
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        
+            document.getElementById('chartContainer').classList.remove('hidden');
+            adjustChartContainerSize();
+        }
+
+        function adjustChartContainerSize() {
+            const chartContainer = document.getElementById('chartContainer');
+            const charts = chartContainer.querySelectorAll('canvas');
+            chartContainer.style.height = '100vh'; // 전체 높이를 꽉 차게 설정
+            charts.forEach(chart => {
+            chart.style.width = '100%';
+            chart.style.height = '100%';
+            });
+        }
+
+        function adjustChartContainerSize() {
+            const chartContainer = document.getElementById('chartContainer');
+            const charts = chartContainer.querySelectorAll('canvas');
+            const containerHeight = chartContainer.clientHeight;
+            const chartHeight = containerHeight / charts.length;
+            charts.forEach(chart => {
+            chart.style.width = '100%';
+            chart.style.height = `${chartHeight}px`;
+            });
+        }
+
+        window.addEventListener('resize', adjustChartContainerSize);
+
+        function adjustChartContainerSize() {
+            const chartContainer = document.getElementById('chartContainer');
+            const charts = chartContainer.querySelectorAll('canvas');
+            charts.forEach(chart => {
+            chart.style.width = '100%';
+            chart.style.height = '100%';
+            });
+        }
+        
+                
+          
+          function generateNormalDistribution(mean, stdDev) {
+            const points = [];
+            for (let i = -4; i <= 4; i += 0.1) {
+              const x = mean + i * stdDev;
+              const y = (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mean) / stdDev, 2));
+              points.push({x, y});
+            }
+            return points;
+          }
+          
+
+        function getRandomColor() {
+        return `rgb(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)})`;
+        }
+
+          
+        function updateMonitoringTable() {
+            const monitoringTable = document.getElementById('monitoringTable');
+            if (!monitoringTable.classList.contains('hidden')) {
+                const tbody = document.getElementById('monitoringData');
+                tbody.innerHTML = '';
+                const cards = document.querySelectorAll('.grid > div');
+                cards.forEach(card => {
+                    const row = document.createElement('tr');
+                    const eqpId = card.querySelector('h2').textContent;
+                    const device = card.querySelector('p:nth-child(1)').textContent.split(':')[1].trim();
+                    const lotId = card.querySelector('p:nth-child(2)').textContent.split(':')[1].trim();
+                    const stepId = card.querySelector('p:nth-child(3)').textContent.split(':')[1].trim();
+                    const pcId = card.querySelector('p:nth-child(4)').textContent.split(':')[1].trim();
+                    const pbId = card.querySelector('p:nth-child(5)').textContent.split(':')[1].trim();
+                    const userId = card.querySelector('p:nth-child(6)').textContent.split(':')[1].trim();
+                    const status = card.querySelector('.eqp-status').textContent;
+                    const progress = card.querySelector('.progress-bg p:nth-child(2)').textContent;
+        
+                    // 상태에 따른 색상 설정
+                    let statusBgColor, statusTextColor;
+                    if (status === 'Wait') {
+                        statusBgColor = 'bg-gray-400';
+                        statusTextColor = 'text-gray-800';
+                    } else if (status === 'ERROR') {
+                        statusBgColor = 'bg-red-300';
+                        statusTextColor = 'text-red-800';
+                    } else {
+                        statusBgColor = 'bg-green-300';
+                        statusTextColor = 'text-green-800';
+                    }
+
+                    
+                    row.innerHTML = `
+                        <td class="border border-gray-600 px-4 py-2">${eqpId}</td>
+                        <td class="border border-gray-600 px-4 py-2">${device}</td>
+                        <td class="border border-gray-600 px-4 py-2">${lotId}</td>
+                        <td class="border border-gray-600 px-4 py-2">${stepId}</td>
+                        <td class="border border-gray-600 px-4 py-2">${pcId}</td>
+                        <td class="border border-gray-600 px-4 py-2">${pbId}</td>
+                        <td class="border border-gray-600 px-4 py-2">${userId}</td>
+                        <td class="border border-gray-600 px-4 py-2">
+                            <div class="${statusBgColor} ${statusTextColor} px-2 py-1 rounded text-center">
+                                ${status}
+                            </div>
+                        </td>
+                        <td class="border border-gray-600 px-4 py-2">
+                            <div class="${statusBgColor} ${statusTextColor} px-2 py-1 rounded text-center">
+                                ${progress}
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+        }
+        
+        // 최신화 버튼 클릭 이벤트
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            showLoadingAnimation();
+            updateData().finally(hideLoadingAnimation);
+        });
+
+        // 로딩 애니메이션 표시 함수
+        function showLoadingAnimation() {
+            const loadingAnimation = document.createElement('div');
+            loadingAnimation.id = 'loadingAnimation';
+            loadingAnimation.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            loadingAnimation.innerHTML = `
+            <div class="loader-container">
+            <div class="loader"></div>
+            <div class="loading-text text-white mt-4">업데이트 중...</div>
+            </div>
+            <style>
+            .loader-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .loader {
+                border: 16px solid #f3f3f3;
+                border-top: 16px solid #3498db;
+                border-radius: 50%;
+                width: 120px;
+                height: 120px;
+                animation: spin 2s linear infinite;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .loading-text {
+                font-size: 1.5rem;
+                font-weight: bold;
+            }
+            </style>
+            `;
+            document.body.appendChild(loadingAnimation);
+        }
+
+        // 로딩 애니메이션 숨기기 함수
+        function hideLoadingAnimation() {
+            const loadingAnimation = document.getElementById('loadingAnimation');
+            if (loadingAnimation) {
+            loadingAnimation.remove();
+            }
+        }
+
+        // Report Confirm 버튼 기능
+        document.getElementById('reportConfirmBtn').addEventListener('click', function() {
+            showReportConfirmTable();
+        });
+
+        // Report Confirm Table 표시 함수
+        function showReportConfirmTable() {
+            const monitoringGrid = document.getElementById('monitoringGrid');
+            const monitoringTable = document.getElementById('monitoringTable');
+            const loadingPositionScreen = document.getElementById('loadingPositionScreen');
+            const reportConfirmTable = document.getElementById('reportConfirmTable');
+            
+            monitoringGrid.classList.add('hidden');
+            monitoringTable.classList.add('hidden');
+            loadingPositionScreen.classList.add('hidden');
+            reportConfirmTable.classList.remove('hidden');
+            updateReportConfirmTable();
+        }
+
+        // Report Confirm Table 업데이트 함수
+        async function updateReportConfirmTable() {
+            try {
+                const response = await fetch('/getWaitData');
+                const data = await response.json();
+                const tbody = document.getElementById('reportConfirmData');
+                tbody.innerHTML = '';
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="border border-gray-600 px-4 py-2">${item.STATUS}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.EQPID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.DEVICE}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.LOT_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.STEP_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.PC_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.PB_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.USER_ID}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.DATE_}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.IP}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.RPA_STATUS}</td>
+                        <td class="border border-gray-600 px-4 py-2">${item.PG_DETAIL}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error fetching wait data:', error);
+            }
+        }
+
+        // 모달 열기 함수
+        function openConfirmModal(row) {
+            const modal = document.getElementById('reportConfirmModal');
+            const confirmBtn = document.getElementById('confirmBtn');
+            const cancelConfirm = document.getElementById('cancelConfirm');
+            const confirmCheckbox = document.getElementById('confirmCheckbox');
+
+            modal.classList.remove('hidden');
+            confirmCheckbox.checked = false; // 체크박스 초기화
+            confirmCheckbox.disabled = true; // 체크박스 비활성화
+            imageContainer.scrollTop = 0; // 스크롤 최상단으로 이동
+
+            confirmBtn.onclick = () => {
+            if (confirmCheckbox.checked) {
+                document.getElementById('finalConfirmModal').classList.remove('hidden');
+                modal.classList.add('hidden');
+            } else {
+                alert('확인란을 체크해주세요.');
+            }
+            };
+
+            cancelConfirm.onclick = () => {
+            modal.classList.add('hidden');
+            };
+
+            document.getElementById('finalConfirmBtn').onclick = () => {
+            row.querySelector('td:nth-child(8) div').classList.replace('bg-gray-400', 'bg-green-400');
+            row.querySelector('td:nth-child(8) div').classList.replace('text-gray-800', 'text-green-800');
+            row.querySelector('td:nth-child(8) div').textContent = 'COMPLETED';
+            document.getElementById('finalConfirmModal').classList.add('hidden');
+            };
+
+            document.getElementById('cancelFinalConfirm').onclick = () => {
+            document.getElementById('finalConfirmModal').classList.add('hidden');
+            };
+
+            // 스크롤 이벤트 리스너
+            imageContainer.addEventListener('scroll', () => {
+            if (imageContainer.scrollTop + imageContainer.clientHeight >= imageContainer.scrollHeight - 1) {
+                confirmCheckbox.disabled = false;
+            } else {
+                confirmCheckbox.disabled = true;
+            }
+            });
+        }
+
+        // 페이지 로드 시 저장된 설정 적용
+        const savedSettings = localStorage.getItem('dashboardSettings');
+        if (savedSettings) {
+            applySettings(JSON.parse(savedSettings));
+        }
+
+        // 초기 데이터 로드
+        updateData();
+
+        // Autobe Check 모달 관련 함수들
+        function openAutobeModal() {
+            console.log('Autobe 모달 열기 시작...');
+            const modal = document.getElementById('autobeModal');
+            modal.style.display = 'flex';
+            
+            // 모달이 열릴 때마다 탭 초기화
+            setTimeout(() => {
+                initializeAutobeTabs();
+                // A조 데이터 자동 로드
+                loadAutobeTeamData('a-team');
+                
+                // 정렬 기능 초기화
+                setTimeout(() => {
+                    initAutobeTableSorting();
+                }, 500);
+            }, 100); // 모달 렌더링 후 초기화
+        }
+
+        function closeAutobeModal() {
+            const modal = document.getElementById('autobeModal');
+            modal.style.display = 'none';
+        }
+
+
+        // 테이블 정렬 기능 초기화
+        function initAutobeTableSorting() {
+            const tables = document.querySelectorAll('.autobe-data-table');
+            
+            tables.forEach(table => {
+                const headers = table.querySelectorAll('th[data-column]');
+                
+                headers.forEach(header => {
+                    // 기존 이벤트 리스너 제거 후 새로 추가
+                    header.removeEventListener('click', handleAutobeSort);
+                    header.addEventListener('click', handleAutobeSort);
+                });
+            });
+        }
+
+        // 정렬 핸들러
+        function handleAutobeSort() {
+            const column = this.getAttribute('data-column');
+            const dataType = this.getAttribute('data-type');
+            const table = this.closest('table');
+            const teamId = table.closest('.autobe-tab-content').id;
+            
+            sortAutobeTable(table, column, dataType, teamId);
+        }
+
+        // 테이블 정렬 함수
+        function sortAutobeTable(table, column, dataType, teamId) {
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            // "데이터가 없습니다" 메시지가 있는 경우 정렬하지 않음
+            if (rows.length === 1 && rows[0].querySelector('td[colspan]')) {
+                return;
+            }
+            
+            // 원본 데이터 저장 (첫 번째 정렬 시에만)
+            if (!sortState.originalData[teamId]) {
+                sortState.originalData[teamId] = rows.slice();
+            }
+            
+            // 정렬 상태 업데이트
+            if (sortState.column !== column) {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            } else {
+                if (sortState.direction === 'none') {
+                    sortState.direction = 'asc';
+                } else if (sortState.direction === 'asc') {
+                    sortState.direction = 'desc';
+                } else {
+                    sortState.direction = 'none';
+                }
+            }
+            
+            // 헤더 스타일 업데이트
+            updateAutobeHeaderStyles(table, column, sortState.direction);
+            
+            let sortedRows;
+            
+            if (sortState.direction === 'none') {
+                // 원래 순서로 복원
+                sortedRows = sortState.originalData[teamId].slice();
+            } else {
+                // 정렬 실행
+                const columnIndex = getAutobeColumnIndex(table, column);
+                
+                sortedRows = rows.slice().sort((a, b) => {
+                    let aVal = a.cells[columnIndex].textContent.trim();
+                    let bVal = b.cells[columnIndex].textContent.trim();
+                    
+                    // N/A 처리
+                    if (aVal === 'N/A') aVal = '';
+                    if (bVal === 'N/A') bVal = '';
+                    
+                    let comparison = 0;
+                    
+                    if (dataType === 'time') {
+                        // 시간 정렬 (HH:MM:SS)
+                        comparison = compareAutobeTime(aVal, bVal);
+                    } else {
+                        // 문자열 정렬
+                        comparison = aVal.localeCompare(bVal, 'ko', { numeric: true, sensitivity: 'base' });
+                    }
+                    
+                    return sortState.direction === 'asc' ? comparison : -comparison;
+                });
+            }
+            
+            // DOM 업데이트
+            tbody.innerHTML = '';
+            sortedRows.forEach(row => tbody.appendChild(row));
+        }
+
+        // 컬럼 인덱스 찾기
+        function getAutobeColumnIndex(table, column) {
+            const headers = table.querySelectorAll('th[data-column]');
+            for (let i = 0; i < headers.length; i++) {
+                if (headers[i].getAttribute('data-column') === column) {
+                    return i;
+                }
+            }
+            return 0;
+        }
+
+        // 시간 비교 함수 (HH:MM:SS 형식)
+        function compareAutobeTime(timeA, timeB) {
+            if (!timeA && !timeB) return 0;
+            if (!timeA) return 1;
+            if (!timeB) return -1;
+            
+            const parseTime = (timeStr) => {
+                const parts = timeStr.split(':');
+                return parts[0] * 3600 + parts[1] * 60 + parseInt(parts[2] || 0);
+            };
+            
+            return parseTime(timeA) - parseTime(timeB);
+        }
+
+        // 헤더 스타일 업데이트
+        function updateAutobeHeaderStyles(table, activeColumn, direction) {
+            const headers = table.querySelectorAll('th[data-column]');
+            
+            headers.forEach(header => {
+                const column = header.getAttribute('data-column');
+                const icon = header.querySelector('.sort-icon');
+                
+                if (column === activeColumn) {
+                    header.classList.add('sort-active');
+                    if (direction === 'asc') {
+                        icon.textContent = '↑';
+                    } else if (direction === 'desc') {
+                        icon.textContent = '↓';
+                    } else {
+                        icon.textContent = '⇅';
+                    }
+                } else {
+                    header.classList.remove('sort-active');
+                    icon.textContent = '⇅';
+                }
+            });
+        }
+
+        // 탭 전환 기능 (개선된 버전)
+        function initializeAutobeTabs() {
+            console.log('Autobe 탭 초기화 시작...');
+            
+            const autobeTabButtons = document.querySelectorAll('.autobe-tab-button');
+            const autobeTabContents = document.querySelectorAll('.autobe-tab-content');
+            
+            console.log('탭 버튼 개수:', autobeTabButtons.length);
+            console.log('탭 컨텐츠 개수:', autobeTabContents.length);
+            
+            autobeTabButtons.forEach((button, index) => {
+                console.log(`탭 버튼 ${index + 1}:`, button.getAttribute('data-tab'));
+                
+                // 기존 이벤트 리스너 제거 (중복 방지)
+                button.removeEventListener('click', handleTabClick);
+                
+                // 새로운 이벤트 리스너 추가
+                button.addEventListener('click', handleTabClick);
+            });
+            
+            console.log('Autobe 탭 초기화 완료');
+        }
+        
+        // 탭 클릭 핸들러 함수
+        function handleTabClick(event) {
+            const targetTab = this.getAttribute('data-tab');
+            console.log('탭 클릭됨:', targetTab);
+            
+            const autobeTabButtons = document.querySelectorAll('.autobe-tab-button');
+            const autobeTabContents = document.querySelectorAll('.autobe-tab-content');
+            
+            // 모든 탭 버튼과 컨텐츠 비활성화
+            autobeTabButtons.forEach(btn => btn.classList.remove('active'));
+            autobeTabContents.forEach(content => content.classList.remove('active'));
+            
+            // 클릭된 탭 활성화
+            this.classList.add('active');
+            const targetContent = document.getElementById(targetTab);
+            if (targetContent) {
+                targetContent.classList.add('active');
+                console.log(`${targetTab} 컨텐츠 활성화됨`);
+            } else {
+                console.error(`${targetTab} 컨텐츠를 찾을 수 없습니다.`);
+            }
+            
+            // 해당 탭 데이터 로드
+            loadAutobeTeamData(targetTab);
+        }
+
+        // DOM 로드 완료시 탭 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeAutobeTabs();
+        });
+
+        // 팀별 데이터 로드 함수
+        async function loadAutobeTeamData(team) {
+            console.log(`=== ${team} 데이터 로드 시작 ===`);
+            
+            const loadingElement = document.getElementById(`${team}-loading`);
+            const tableElement = document.getElementById(`${team}-table`);
+            const tbodyElement = document.getElementById(`${team}-tbody`);
+            
+            console.log(`${team} 요소 확인:`, {
+                loading: !!loadingElement,
+                table: !!tableElement, 
+                tbody: !!tbodyElement
+            });
+            
+            if (!loadingElement || !tableElement || !tbodyElement) {
+                console.error(`${team} 요소를 찾을 수 없습니다.`);
+                return;
+            }
+            
+            // 로딩 표시
+            loadingElement.style.display = 'block';
+            tableElement.style.display = 'none';
+            
+            try {
+                console.log(`${team} 데이터 요청 중...`);
+                
+                // 서버에서 데이터 가져오기
+                const response = await fetch(`/getAutobeData?team=${team}&timeFilter=all`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP 오류: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log(`${team} 받은 데이터:`, data);
+                
+                // 테이블 데이터 생성
+                tbodyElement.innerHTML = '';
+                
+                if (data && data.length > 0) {
+                    data.forEach(item => {
+                        const row = createAutobeTableRow(item);
+                        tbodyElement.appendChild(row);
+                    });
+                } else {
+                    // 데이터가 없을 경우 메시지 표시
+                    const noDataRow = document.createElement('tr');
+                    noDataRow.innerHTML = `
+                        <td colspan="4" style="text-align: center; color: #ffaa00; padding: 2rem;">
+                            조회된 데이터가 없습니다.
+                        </td>
+                    `;
+                    tbodyElement.appendChild(noDataRow);
+                }
+                
+                // 테이블 표시
+                loadingElement.style.display = 'none';
+                tableElement.style.display = 'block';
+                
+                // 장비 개수 업데이트
+                updateAutobeEquipmentCount(team, data);
+                
+                // 정렬 상태 초기화
+                sortState.column = null;
+                sortState.direction = 'none';
+                delete sortState.originalData[team];
+                
+                // 정렬 기능 재초기화
+                setTimeout(() => {
+                    initAutobeTableSorting();
+                }, 100);
+                
+            } catch (error) {
+                console.error(`${team} 데이터 로드 오류:`, error);
+                
+                // 오류 메시지 표시
+                tbodyElement.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #ff4444; padding: 2rem;">
+                            데이터 로드 중 오류가 발생했습니다: ${error.message}
+                        </td>
+                    </tr>
+                `;
+                
+                loadingElement.style.display = 'none';
+                tableElement.style.display = 'block';
+                
+                // 에러 시 장비 개수 0으로 설정
+                updateAutobeEquipmentCount(team, []);
+            }
+        }
+
+        // 장비 개수 업데이트 함수
+        function updateAutobeEquipmentCount(team, data) {
+            const countElement = document.getElementById(`${team}-count`);
+            const countNumberElement = countElement.querySelector('.count-number');
+            
+            // 유효한 장비 개수 계산 (EQPID가 있는 경우)
+            let validCount = 0;
+            if (data && data.length > 0) {
+                validCount = data.filter(item => item.EQPID && item.EQPID !== 'N/A' && item.EQPID.trim() !== '').length;
+            }
+            
+            // 숫자 애니메이션 효과
+            animateAutobeCountNumber(countNumberElement, validCount);
+            
+            // 개수 표시 요소 보이기
+            setTimeout(() => {
+                countElement.style.display = 'inline-block';
+            }, 300);
+        }
+
+        // 숫자 카운트업 애니메이션
+        function animateAutobeCountNumber(element, targetCount) {
+            const startCount = parseInt(element.textContent) || 0;
+            const duration = 800; // 0.8초
+            const startTime = performance.now();
+            
+            function updateCount(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // easeOutCubic 이징 함수
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+                
+                const currentCount = Math.round(startCount + (targetCount - startCount) * easeProgress);
+                element.textContent = currentCount;
+                
+                if (progress < 1) {
+                    requestAnimationFrame(updateCount);
+                } else {
+                    element.textContent = targetCount;
+                }
+            }
+            
+            requestAnimationFrame(updateCount);
+        }
+
+        // 테이블 행 생성 함수
+        function createAutobeTableRow(item) {
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td>${item.EQPID || 'N/A'}</td>
+                <td>${item.RPA_TIME || 'N/A'}</td>
+                <td>${item.LOT_ID || 'N/A'}</td>
+                <td>${item.DEVICE_ID || 'N/A'}</td>
+            `;
+            
+            return row;
+        }
+
+        // ESC 키로 모달 닫기
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeAutobeModal();
+                closePasswordModal();
+                closeTeamSelectionModal();
+            }
+        });
+
+        // 수동 업데이트 관련 함수들
+        let savedPassword = ''; // 비밀번호 임시 저장용
+
+        function showPasswordModal() {
+            console.log('showPasswordModal 호출됨'); // 디버깅용
+            const modal = document.getElementById('passwordModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                const passwordInput = document.getElementById('developerPassword');
+                if (passwordInput) {
+                    setTimeout(() => {
+                        passwordInput.focus();
+                    }, 100);
+                }
+                console.log('비밀번호 모달 표시됨'); // 디버깅용
+            } else {
+                console.error('비밀번호 모달을 찾을 수 없습니다.'); // 디버깅용
+            }
+        }
+
+        function closePasswordModal() {
+            console.log('closePasswordModal 호출됨'); // 디버깅용
+            const modal = document.getElementById('passwordModal');
+            if (modal) {
+                modal.style.display = 'none';
+                const passwordInput = document.getElementById('developerPassword');
+                if (passwordInput) {
+                    passwordInput.value = '';
+                }
+                savedPassword = ''; // 비밀번호 초기화
+            }
+        }
+
+        function showTeamSelectionModal() {
+            console.log('showTeamSelectionModal 호출됨'); // 디버깅용
+            const modal = document.getElementById('teamSelectionModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                console.log('팀 선택 모달 표시됨'); // 디버깅용
+            } else {
+                console.error('팀 선택 모달을 찾을 수 없습니다.'); // 디버깅용
+            }
+        }
+
+        function closeTeamSelectionModal() {
+            console.log('closeTeamSelectionModal 호출됨'); // 디버깅용
+            const modal = document.getElementById('teamSelectionModal');
+            if (modal) {
+                modal.style.display = 'none';
+                // 팀 선택 모달을 닫을 때도 저장된 비밀번호 초기화
+                savedPassword = '';
+                const passwordInput = document.getElementById('developerPassword');
+                if (passwordInput) {
+                    passwordInput.value = '';
+                }
+            }
+        }
+
+        // 비밀번호 검증 함수
+        function verifyPassword() {
+            const password = document.getElementById('developerPassword').value;
+            console.log('verifyPassword 함수 호출됨'); // 디버깅용
+            console.log('입력된 비밀번호:', password); // 디버깅용
+            
+            if (password.trim() === '') {
+                console.log('비밀번호가 비어있음'); // 디버깅용
+                showToast('비밀번호를 입력하세요.', 'error');
+                return;
+            }
+            
+            // 올바른 비밀번호 확인
+            if (password !== 'autobe2025!') {
+                showToast('올바르지 않은 비밀번호입니다.', 'error');
+                return;
+            }
+            
+            console.log('비밀번호 검증 성공'); // 디버깅용
+            // 비밀번호를 저장
+            savedPassword = password;
+            closePasswordModal();
+            showTeamSelectionModal();
+        }
+
+        // 수동 업데이트 실행 함수
+        async function executeManualUpdate(team) {
+            if (!savedPassword) {
+                showToast('오류: 비밀번호가 없습니다. 다시 시도해주세요.', 'error');
+                closeTeamSelectionModal();
+                return;
+            }
+            
+            closeTeamSelectionModal();
+            
+            // 로딩 토스트 표시
+            showToast('데이터 업데이트 중...', 'info');
+            
+            try {
+                console.log('수동 업데이트 요청:', { team, password: savedPassword }); // 디버깅용
+                
+                const response = await fetch('/refreshAutobeData', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        password: savedPassword,
+                        team: team
+                    })
+                });
+
+                const data = await response.json();
+                console.log('서버 응답:', data); // 디버깅용
+
+                if (response.ok && data.success) {
+                    const teamName = team === 'a-team' ? 'A조' : team === 'b-team' ? 'B조' : 'C조';
+                    showToast(`${teamName} 데이터가 성공적으로 업데이트되었습니다. (${data.dataCount}건)`, 'success');
+                    
+                    // 현재 활성화된 탭이 업데이트된 팀이면 데이터를 다시 로드
+                    const activeTab = document.querySelector('.autobe-tab-button.active');
+                    if (activeTab && activeTab.getAttribute('data-tab') === team) {
+                        setTimeout(() => {
+                            loadAutobeTeamData(team);
+                        }, 1000);
+                    }
+                } else {
+                    showToast(data.error || '업데이트에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error('수동 업데이트 오류:', error);
+                showToast('서버 연결 오류가 발생했습니다.', 'error');
+            } finally {
+                // 비밀번호 초기화
+                savedPassword = '';
+                document.getElementById('developerPassword').value = '';
+            }
+        }
+
+        // 토스트 메시지 표시 함수
+        function showToast(message, type = 'info') {
+            // 기존 토스트 제거
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+
+            document.body.appendChild(toast);
+
+            // 애니메이션으로 표시
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+
+            // 자동으로 제거 (에러 메시지는 더 오래 표시)
+            const duration = type === 'error' ? 5000 : 3000;
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.remove();
+                    }
+                }, 300);
+            }, duration);
+        }
+
+        // Enter 키 처리 및 버튼 이벤트 리스너 등록
+        // DOMContentLoaded 대신 즉시 실행
+        (function() {
+            // 페이지 로드 완료 대기
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initializeEventListeners);
+            } else {
+                initializeEventListeners();
+            }
+            
+            function initializeEventListeners() {
+                console.log('이벤트 리스너 초기화 시작'); // 디버깅용
+                
+                const passwordInput = document.getElementById('developerPassword');
+                const confirmButton = document.querySelector('.password-modal-btn.confirm');
+                const cancelButton = document.querySelector('.password-modal-btn.cancel');
+                const manualUpdateBtn = document.querySelector('.autobe-manual-update-btn');
+                
+                console.log('수동 업데이트 버튼 찾기:', manualUpdateBtn); // 디버깅용
+                
+                // 수동 업데이트 버튼 이벤트 리스너
+                if (manualUpdateBtn) {
+                    manualUpdateBtn.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        console.log('수동 업데이트 버튼 클릭됨');
+                        showPasswordModal();
+                    });
+                    console.log('수동 업데이트 버튼 이벤트 리스너 등록 완료'); // 디버깅용
+                } else {
+                    console.error('수동 업데이트 버튼을 찾을 수 없습니다.'); // 디버깅용
+                }
+                
+                // 비밀번호 입력 필드 Enter 키 이벤트
+                if (passwordInput) {
+                    passwordInput.addEventListener('keydown', function(event) {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            console.log('Enter 키 감지됨, verifyPassword 호출');
+                            verifyPassword();
+                        }
+                    });
+                    console.log('비밀번호 입력 필드 이벤트 리스너 등록 완료'); // 디버깅용
+                }
+                
+                // 확인 버튼 이벤트 리스너
+                if (confirmButton) {
+                    confirmButton.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        console.log('확인 버튼 클릭됨, verifyPassword 호출');
+                        verifyPassword();
+                    });
+                    console.log('확인 버튼 이벤트 리스너 등록 완료'); // 디버깅용
+                }
+                
+                // 취소 버튼 이벤트 리스너
+                if (cancelButton) {
+                    cancelButton.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        console.log('취소 버튼 클릭됨, closePasswordModal 호출');
+                        closePasswordModal();
+                    });
+                    console.log('취소 버튼 이벤트 리스너 등록 완료'); // 디버깅용
+                }
+                
+                // 팀 선택 버튼들 이벤트 리스너
+                const teamButtons = document.querySelectorAll('.team-btn');
+                console.log('팀 버튼들 찾기:', teamButtons.length, '개'); // 디버깅용
+                teamButtons.forEach((button, idx) => {
+                    button.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        let team = '';
+                        if (button.textContent.includes('A조')) team = 'a-team';
+                        else if (button.textContent.includes('B조')) team = 'b-team';
+                        else if (button.textContent.includes('C조')) team = 'c-team';
+                        else if (idx === 0) team = 'a-team';
+                        else if (idx === 1) team = 'b-team';
+                        else if (idx === 2) team = 'c-team';
+                        console.log('팀 버튼 클릭됨:', team);
+                        executeManualUpdate(team);
+                    });
+                });
+                
+                // 팀 선택 취소 버튼 이벤트 리스너
+                const teamCancelButton = document.querySelector('.team-selection-cancel');
+                if (teamCancelButton) {
+                    teamCancelButton.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        closeTeamSelectionModal();
+                    });
+                    console.log('팀 선택 취소 버튼 이벤트 리스너 등록 완료'); // 디버깅용
+                }
+                
+                console.log('모든 이벤트 리스너 초기화 완료'); // 디버깅용
+            }
+        })();
+    </script>
+
+<!-- RPA Interface Modal -->
+<div id="rpaInterfaceModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white text-gray-800 rounded-lg p-6 w-2/3">
+        <h2 class="text-xl font-bold mb-4">RPA History List</h2>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">MACHINE</label>
+                <select id="rpaMcFilter" class="w-full bg-gray-200 text-gray-800 rounded p-2 border border-gray-600">
+                    <option value="">전체</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">LOT_ID</label>
+                <select id="rpaLotFilter" class="w-full bg-gray-200 text-gray-800 rounded p-2 border border-gray-600">
+                    <option value="">전체</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">DEVICE_PPID</label>
+                <select id="rpaDeviceFilter" class="w-full bg-gray-200 text-gray-800 rounded p-2 border border-gray-600">
+                    <option value="">전체</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">DATE</label>
+                <input type="date" id="rpaStartDateFilter" class="w-full bg-gray-200 text-gray-800 rounded p-2 border border-gray-600">
+                <input type="date" id="rpaEndDateFilter" class="w-full bg-gray-200 text-gray-800 rounded p-2 border border-gray-600 mt-2">
+            </div>
+        </div>
+        <div class="flex justify-end space-x-2 mt-6">
+            <button id="cancelRPAInterface" class="bg-gray-200 px-4 py-2 rounded">닫기</button>
+            <button id="applyRPAInterface" class="bg-blue-600 text-white px-4 py-2 rounded">적용</button>
+        </div>
+    </div>
+</div>
+
+<!-- RPA Interface Data Modal -->
+<div id="rpaInterfaceDataModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-white text-gray-800 rounded-lg p-6 w-[95%] h-[95%] overflow-auto">
+        <h2 class="text-xl font-bold mb-4">RPA History List</h2>
+        
+        <!-- 필터 버튼 섹션 -->
+        <div class="filter-container">
+            <button id="filterA" class="filter-button" data-shift="A">A조 (07:00~14:59)</button>
+            <button id="filterB" class="filter-button" data-shift="B">B조 (15:00~22:59)</button>
+            <button id="filterC" class="filter-button" data-shift="C">C조 (23:00~06:59)</button>
+        </div>
+        
+        <div class="flex justify-end space-x-2 mb-4">
+            <button id="closeRPAInterfaceData" class="bg-gray-200 px-4 py-2 rounded">닫기</button>
+            <button id="exportToExcel" class="bg-green-600 text-white px-4 py-2 rounded">Excel로 추출</button>
+        </div>
+        <div class="overflow-auto rpa-table-container" style="max-height: calc(100vh - 200px); min-height: 400px;">
+            <table class="w-full bg-white shadow-lg rounded-lg rpa-table">
+                <thead class="bg-gray-300 text-gray-800 text-center text-sm sticky top-0" id="rpaInterfaceTableHead" style="text-align: center;"></thead>
+                    <!-- 동적으로 컬럼 헤더가 추가됩니다 -->
+                </thead>
+                <tbody id="rpaInterfaceData" class="bg-gray-100 text-gray-800 text-center"></tbody>
+                    <!-- 동적으로 데이터가 추가됩니다 -->
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 데이터 개수 표시 -->
+        <div id="dataCount" class="data-count">
+            총 데이터: 0개
+        </div>
+    </div>
+</div>
+
+<!-- 팝업창 -->
+<div id="popupModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-white text-gray-800 rounded-lg p-6 w-4/5 h-4/5 overflow-auto">
+        <h2 class="text-xl font-bold mb-4">RPA_이력데이터</h2>
+        <div id="popupContent"></div>
+        <div class="flex justify-end mt-4">
+            <button id="closePopup" class="bg-gray-200 px-4 py-2 rounded">닫기</button>
+        </div>
+    </div>
+</div>
+
+<!-- Excel Sheet View Modal -->
+<div id="excelSheetViewModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-white text-gray-800 rounded-lg p-6 w-9/10 h-9/10 overflow-auto max-w-full max-h-full">
+        <h2 class="text-xl font-bold mb-4">Excel Sheet View</h2>
+        <div class="flex justify-end space-x-2 mb-4">
+            <button id="prevPage" class="bg-gray-200 px-4 py-2 rounded hidden">이전</button>
+            <button id="nextPage" class="bg-gray-200 px-4 py-2 rounded">다음</button>
+            <button id="closeExcelSheetView" class="bg-gray-200 px-4 py-2 rounded">닫기</button>
+        </div>
+        <div id="page1" class="overflow-auto w-full h-full">
+            <div id="excelSheetContent"></div>
+        </div>
+        <div id="page2" class="overflow-auto w-full h-full hidden">
+            <div id="imageContent" class="grid grid-cols-1 gap-4"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+//////////////////////////////////////////////
+    // 특정 행 더블클릭 이벤트 추가
+    document.getElementById('rpaInterfaceData').addEventListener('dblclick', function(event) {
+        if (event.target.tagName === 'TD') {
+            const row = event.target.parentElement;
+            const rowData = Array.from(row.children).map(td => td.textContent);
+            const headers = Array.from(document.getElementById('rpaInterfaceTableHead').children[0].children).map(th => th.textContent);
+            const sortValue = rowData[headers.indexOf('SORT_TYPE')];
+            const lotValue = rowData[headers.indexOf('LOT_ID')];
+            const mcValue = rowData[headers.indexOf('MACHINE')];
+            const slotValue = rowData[headers.indexOf('SLOT')];
+            const startTimeValue = rowData[headers.indexOf('START_TIME')];
+
+            // START TIME 값을 "YYYYMMddhhmmss" 형식으로 변환
+            const startTime = new Date(startTimeValue);
+            const formattedStartTime = `${startTime.getFullYear()}${String(startTime.getMonth() + 1).padStart(2, '0')}${String(startTime.getDate()).padStart(2, '0')}${String(startTime.getHours()).padStart(2, '0')}${String(startTime.getMinutes()).padStart(2, '0')}${String(startTime.getSeconds()).padStart(2, '0')}`;
+
+            //const fileName = `${lotValue}_${mcValue}_${sortValue}_${slotValue}_${formattedStartTime}.xlsx`; // SLOT 포함
+            const fileName = `${lotValue}_${mcValue}_${sortValue}_${formattedStartTime}.xlsx`;
+            const remotePath = `RPA/Report/${sortValue}/${mcValue}/${fileName}`;
+            console.log(`Remote Path: ${remotePath}`); // 경로를 콘솔에 출력
+            openPopup(rowData, remotePath, sortValue); // 팝업창에 경로를 표시
+        }
+    });
+    // // 팝업창 열기 함수
+    // function openPopup(data, remotePath, sortValue) {
+    //     const popupModal = document.getElementById('popupModal');
+    //     const popupContent = document.getElementById('popupContent');
+    //     popupContent.innerHTML = `<strong>Remote Path:</strong> ${remotePath}`;
+    //     popupModal.classList.remove('hidden');
+
+    //     // 서버로 요청 보내기
+    //     fetch(`/Detailed-Report?fileName=${remotePath}&sortValue=${sortValue}`)
+    //         .then(response => response.text())
+    //         .then(html => {
+    //             popupContent.innerHTML += `<br><br>${html}`;
+    //         })
+    //         .catch(error => console.error('Error fetching detailed report:', error));
+    // }
+
+    function openPopup(data, remotePath, sortValue) {
+        const popupModal = document.getElementById('popupModal');
+        const popupContent = document.getElementById('popupContent');
+        popupContent.innerHTML = `<strong>Remote Path:</strong> ${remotePath}`;
+        popupModal.classList.remove('hidden');
+
+        // 테이블 헤더에서 MACHINE 컬럼 인덱스 찾기
+        const headers = Array.from(document.getElementById('rpaInterfaceTableHead').children[0].children).map(th => th.textContent);
+        const mcValue = data[headers.indexOf('MACHINE')]; // M/C 컬럼 값 추출
+
+        // 서버로 요청 보내기 - eqpid 파라미터 추가
+        fetch(`/Detailed-Report?fileName=${remotePath}&sortValue=${sortValue}&eqpid=${mcValue}`)
+            .then(response => response.text())
+            .then(html => {
+                popupContent.innerHTML += `<br><br>${html}`;
+            })
+            .catch(error => console.error('Error fetching detailed report:', error));
+    }
+
+    // 팝업창 닫기 버튼 이벤트 리스너
+    document.getElementById('closePopup').addEventListener('click', function() {
+        document.getElementById('popupModal').classList.add('hidden');
+    });
+
+    // 특정 행에 마우스 호버 시 음영 처리
+    document.getElementById('rpaInterfaceData').addEventListener('mouseover', function(event) {
+       if (event.target.tagName === 'TD') {
+          const row = event.target.parentElement;
+          row.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
+       }
+    });
+
+    document.getElementById('rpaInterfaceData').addEventListener('mouseout', function(event) {
+       if (event.target.tagName === 'TD') {
+          const row = event.target.parentElement;
+          row.style.backgroundColor = '';
+       }
+    });
+//////////////////////////////////////////////
+    document.getElementById('reportConfirmTable').addEventListener('click', async (event) => {
+        if (event.target.tagName === 'TD') {
+            const row = event.target.parentElement;
+            const status = row.cells[0].textContent;
+            const lotId = row.cells[3].textContent;
+
+            try {
+                showLoadingAnimation();
+                const response = await fetch(`/viewExcelSheet?status=${status}&lotId=${lotId}`);
+                hideLoadingAnimation();
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('excelSheetContent').innerHTML = html;
+                    document.getElementById('excelSheetViewModal').classList.remove('hidden');
+                } else {
+                    console.error('Failed to fetch Excel sheet');
+                }
+            } catch (error) {
+                hideLoadingAnimation();
+                console.error('Error fetching Excel sheet:', error);
+            }
+
+            document.getElementById('nextPage').addEventListener('click', async () => {
+                document.getElementById('page1').classList.add('hidden');
+                document.getElementById('page2').classList.remove('hidden');
+                document.getElementById('prevPage').classList.remove('hidden');
+                document.getElementById('nextPage').classList.add('hidden');
+
+                try {
+                    showLoadingAnimation('이미지 추출중...');
+                    const response = await fetch(`/fetchImages?status=${status}&lotId=${lotId}`);
+                    hideLoadingAnimation();
+                    if (response.ok) {
+                        const images = await response.json();
+                        const imageContent = document.getElementById('imageContent');
+                        imageContent.innerHTML = '';
+
+                        // 타이틀 제목 추가
+                        const title = document.createElement('div');
+                        title.textContent = images.length > 0 ? images[0].path : '이미지 없음';
+                        title.className = 'bg-blue-200 text-center py-2 font-bold';
+                        imageContent.appendChild(title);
+
+                        images.forEach(image => {
+                            const imgContainer = document.createElement('div');
+                            imgContainer.className = 'bg-white shadow-md rounded-lg overflow-hidden';
+
+                            const imgName = document.createElement('div');
+                            imgName.textContent = image.name;
+                            imgName.className = 'bg-yellow-200 text-center py-2 font-bold';
+
+                            const imgElement = document.createElement('img');
+                            imgElement.src = image.path;
+                            imgElement.alt = image.name;
+                            imgElement.className = 'w-full';
+                            imgElement.onerror = function() {
+                                this.src = '/path/to/placeholder.png'; // 대체 이미지 경로 설정
+                                this.alt = '이미지를 불러올 수 없습니다.';
+                            };
+
+                            imgContainer.appendChild(imgName);
+                            imgContainer.appendChild(imgElement);
+                            imageContent.appendChild(imgContainer);
+                        });
+                    } else {
+                        console.error('Failed to fetch images');
+                    }
+                } catch (error) {
+                    hideLoadingAnimation();
+                    console.error('Error fetching images:', error);
+                }
+            });
+        }
+    });
+
+    document.getElementById('closeExcelSheetView').addEventListener('click', () => {
+        document.getElementById('excelSheetViewModal').classList.add('hidden');
+    });
+
+    document.getElementById('prevPage').addEventListener('click', () => {
+        document.getElementById('page1').classList.remove('hidden');
+        document.getElementById('page2').classList.add('hidden');
+        document.getElementById('prevPage').classList.add('hidden');
+        document.getElementById('nextPage').classList.remove('hidden');
+    });
+
+    function showLoadingAnimation(text = '로딩 중...') {
+        const loadingAnimation = document.createElement('div');
+        loadingAnimation.id = 'loadingAnimation';
+        loadingAnimation.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        loadingAnimation.innerHTML = `
+            <div class="loader-container">
+                <div class="loader"></div>
+                <div class="loading-text text-white mt-4">${text}</div>
+            </div>
+            <style>
+                .loader-container {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                }
+                .loader {
+                    border: 16px solid #f3f3f3;
+                    border-top: 16px solid #3498db;
+                    border-radius: 50%;
+                    width: 120px;
+                    height: 120px;
+                    animation: spin 2s linear infinite;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                .loading-text {
+                    font-size: 1.5rem;
+                    font-weight: bold;
+                }
+            </style>
+        `;
+        document.body.appendChild(loadingAnimation);
+    }
+
+    function hideLoadingAnimation() {
+        const loadingAnimation = document.getElementById('loadingAnimation');
+        if (loadingAnimation) {
+            loadingAnimation.remove();
+        }
+    }
+</script>
+
+<script>
+    document.getElementById('showRPAInterfaceBtn').addEventListener('click', () => {
+        document.getElementById('rpaInterfaceModal').classList.remove('hidden');
+        loadRPAFilters();
+    });
+
+    document.getElementById('cancelRPAInterface').addEventListener('click', () => {
+        document.getElementById('rpaInterfaceModal').classList.add('hidden');
+    });
+
+    document.getElementById('applyRPAInterface').addEventListener('click', () => {
+        applyRPAFilters();
+    });
+
+    document.getElementById('closeRPAInterfaceData').addEventListener('click', () => {
+        document.getElementById('rpaInterfaceDataModal').classList.add('hidden');
+        // 필터 초기화
+        resetShiftFilters();
+    });
+
+    document.getElementById('exportToExcel').addEventListener('click', () => {
+        exportTableToExcel('rpaInterfaceData', 'RPA_History_List');
+    });
+
+    // 시간대 필터 버튼 이벤트 핸들러
+    document.getElementById('filterA').addEventListener('click', () => {
+        toggleShiftFilter('A', 'filterA');
+    });
+
+    document.getElementById('filterB').addEventListener('click', () => {
+        toggleShiftFilter('B', 'filterB');
+    });
+
+    document.getElementById('filterC').addEventListener('click', () => {
+        toggleShiftFilter('C', 'filterC');
+    });
+
+    // 시간대 필터 토글 함수
+    function toggleShiftFilter(shift, buttonId) {
+        const button = document.getElementById(buttonId);
+        
+        if (activeShiftFilters.has(shift)) {
+            // 필터 비활성화
+            activeShiftFilters.delete(shift);
+            button.classList.remove('active');
+        } else {
+            // 필터 활성화
+            activeShiftFilters.add(shift);
+            button.classList.add('active');
+        }
+        
+        // 필터 적용
+        applyShiftFilter();
+    }
+
+    // 시간대 필터 초기화 함수
+    function resetShiftFilters() {
+        activeShiftFilters.clear();
+        document.getElementById('filterA').classList.remove('active');
+        document.getElementById('filterB').classList.remove('active');
+        document.getElementById('filterC').classList.remove('active');
+    }
+
+    // 수정: DB에서 가져온 데이터를 필터에 제대로 추가하도록 로직 수정
+    async function loadRPAFilters() {
+        try {
+            // '/getSummaryReport' API 호출
+            const response = await fetch('/getSummaryReport');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // JSON 데이터를 가져와 전역 변수에 저장
+            const data = await response.json();
+            globalRPAExcelData = data;
+
+            console.log(globalRPAExcelData); // 데이터 확인
+
+            // 필터 초기화
+            const mcSet = new Set(globalRPAExcelData.map(row => row['MACHINE'])); // 'MACHINE' 컬럼 데이터 추출
+            const lotSet = new Set(globalRPAExcelData.map(row => row['LOT_ID'])); // 'LOT_ID' 컬럼 데이터 추출
+            const deviceSet = new Set(globalRPAExcelData.map(row => row['DEVICE_PPID'])); // 'DEVICE_PPID' 컬럼 데이터 추출
+
+            console.log('MACHINE 필터 데이터:', Array.from(mcSet)); // 디버깅 로그 추가
+            console.log('LOT_ID 필터 데이터:', Array.from(lotSet));
+            console.log('DEVICE_PPID 필터 데이터:', Array.from(deviceSet));
+
+            // 필터에 데이터 추가
+            populateRPAFilter('rpaMcFilter', mcSet);
+            populateRPAFilter('rpaLotFilter', lotSet);
+            populateRPAFilter('rpaDeviceFilter', deviceSet);
+        } catch (error) {
+            console.error('Error loading filters:', error);
+        }
+    }
+
+    // 수정: 필터 데이터가 비어 있는 경우 기본 옵션만 표시하도록 처리
+    function populateRPAFilter(filterId, values) {
+        const filter = document.getElementById(filterId);
+        if (!filter) {
+            console.error(`Filter element with ID "${filterId}" not found.`);
+            return;
+        }
+
+        filter.innerHTML = '<option value="">전체</option>'; // 기본 옵션 추가
+        values.forEach(value => {
+            if (value) { // 값이 null 또는 undefined가 아닌 경우만 추가
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                filter.appendChild(option);
+            }
+        });
+    }
+
+    // 시간대별 필터 상태 관리
+    let activeShiftFilters = new Set();
+    let currentFilteredData = [];
+
+    // 시간 추출 함수 (YYYY/MM/DD hh:mm:ss 형태에서 hh:mm:ss 추출)
+    function extractTime(dateTimeString) {
+        if (!dateTimeString) return null;
+        const parts = dateTimeString.split(' ');
+        return parts.length > 1 ? parts[1] : null;
+    }
+
+    // 시간대 검사 함수
+    function isInTimeRange(timeString, shift) {
+        if (!timeString) return false;
+        
+        const timeParts = timeString.split(':');
+        if (timeParts.length < 2) return false;
+        
+        const hour = parseInt(timeParts[0]);
+        const minute = parseInt(timeParts[1]);
+        const totalMinutes = hour * 60 + minute;
+        
+        switch (shift) {
+            case 'A': // 07:00~14:59
+                return totalMinutes >= 420 && totalMinutes <= 899; // 07:00 = 420분, 14:59 = 899분
+            case 'B': // 15:00~22:59  
+                return totalMinutes >= 900 && totalMinutes <= 1379; // 15:00 = 900분, 22:59 = 1379분
+            case 'C': // 23:00~06:59 (다음날 새벽 포함)
+                return totalMinutes >= 1380 || totalMinutes <= 419; // 23:00 = 1380분, 06:59 = 419분
+            default:
+                return false;
+        }
+    }
+
+    // 수정: 필터링 로직에서 데이터 형식과 키 이름을 확인하고, 필터 조건을 정확히 적용하도록 수정
+    function applyRPAFilters() {
+        const mcFilter = document.getElementById('rpaMcFilter').value; // MACHINE 필터 값
+        const lotFilter = document.getElementById('rpaLotFilter').value; // LOT_ID 필터 값
+        const deviceFilter = document.getElementById('rpaDeviceFilter').value; // DEVICE_PPID 필터 값
+        const startDateFilter = document.getElementById('rpaStartDateFilter').value; // 시작 날짜 필터 값
+        const endDateFilter = document.getElementById('rpaEndDateFilter').value; // 종료 날짜 필터 값
+
+        // 필터링 조건 적용
+        const filteredData = globalRPAExcelData.filter(row => {
+            const matchMc = !mcFilter || row['MACHINE'] === mcFilter; // MACHINE 필터 조건
+            const matchLot = !lotFilter || row['LOT_ID'] === lotFilter; // LOT_ID 필터 조건
+            const matchDevice = !deviceFilter || row['DEVICE_PPID'] === deviceFilter; // DEVICE_PPID 필터 조건
+            const matchStartDate = !startDateFilter || new Date(row['END_TIME']).toDateString() >= new Date(startDateFilter).toDateString(); // 시작 날짜 필터 조건
+            const matchEndDate = !endDateFilter || new Date(row['END_TIME']).toDateString() <= new Date(endDateFilter).toDateString(); // 종료 날짜 필터 조건
+
+            return matchMc && matchLot && matchDevice && matchStartDate && matchEndDate;
+        });
+
+        console.log('필터링된 데이터:', filteredData); // 디버깅용 로그
+        
+        // 현재 필터링된 데이터 저장
+        currentFilteredData = filteredData;
+
+        renderRPATable(filteredData);
+
+        // 모달 전환
+        document.getElementById('rpaInterfaceModal').classList.add('hidden');
+        document.getElementById('rpaInterfaceDataModal').classList.remove('hidden');
+    }
+
+    // 테이블 렌더링 함수
+    function renderRPATable(data) {
+        const tableHead = document.getElementById('rpaInterfaceTableHead');
+        const tbody = document.getElementById('rpaInterfaceData');
+        tbody.innerHTML = '';
+        tableHead.innerHTML = '';
+
+        // 테이블 헤더 생성
+        if (data.length > 0) {
+            const headerRow = document.createElement('tr');
+            Object.keys(data[0]).forEach(key => {
+                const th = document.createElement('th');
+                th.className = 'px-4 py-2 text-left';
+                th.textContent = key;
+                headerRow.appendChild(th);
+            });
+            tableHead.appendChild(headerRow);
+        }
+
+        // 테이블 바디 생성 (툴팁 기능 포함)
+        data.forEach(item => {
+            const row = document.createElement('tr');
+            Object.entries(item).forEach(([key, value]) => {
+                const td = document.createElement('td');
+                td.className = 'border border-gray-600 px-4 py-2';
+                td.textContent = value || '';
+                
+                // 툴팁 이벤트 추가
+                td.addEventListener('mouseenter', (e) => showTooltip(e, value || ''));
+                td.addEventListener('mouseleave', hideTooltip);
+                
+                row.appendChild(td);
+            });
+            tbody.appendChild(row);
+        });
+
+        // 데이터 개수 업데이트
+        updateDataCount(data.length);
+    }
+
+    // 데이터 개수 업데이트 함수
+    function updateDataCount(count) {
+        const dataCountElement = document.getElementById('dataCount');
+        if (dataCountElement) {
+            dataCountElement.textContent = `총 데이터: ${count.toLocaleString()}개`;
+        }
+    }
+
+    // 시간대 필터 적용 함수
+    function applyShiftFilter() {
+        if (activeShiftFilters.size === 0) {
+            // 필터가 없으면 전체 데이터 표시
+            renderRPATable(currentFilteredData);
+            return;
+        }
+
+        const shiftFilteredData = currentFilteredData.filter(row => {
+            const endTime = extractTime(row['END_TIME']);
+            if (!endTime) return false;
+            
+            // 활성화된 필터 중 하나라도 조건에 맞으면 포함
+            for (let shift of activeShiftFilters) {
+                if (isInTimeRange(endTime, shift)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+
+        renderRPATable(shiftFilteredData);
+    }
+
+    // 툴팁 표시 함수
+    function showTooltip(event, content) {
+        hideTooltip(); // 기존 툴팁 제거
+        
+        const tooltip = document.createElement('div');
+        tooltip.className = 'cell-tooltip';
+        tooltip.textContent = content;
+        tooltip.id = 'cellTooltip';
+        
+        document.body.appendChild(tooltip);
+        
+        const rect = event.target.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        
+        let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+        let top = rect.top - tooltipRect.height - 8;
+        
+        // 화면 경계 체크
+        if (left < 0) left = rect.left;
+        if (left + tooltipRect.width > window.innerWidth) {
+            left = window.innerWidth - tooltipRect.width - 10;
+        }
+        if (top < 0) {
+            top = rect.bottom + 8;
+        }
+        
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+    }
+
+    // 툴팁 숨기기 함수
+    function hideTooltip() {
+        const tooltip = document.getElementById('cellTooltip');
+        if (tooltip) {
+            tooltip.remove();
+        }
+    }
+
+    function exportTableToExcel(tableID, filename = '') {
+        const tableSelect = document.getElementById(tableID);
+        const wb = XLSX.utils.book_new();
+
+        // 테이블의 헤더와 데이터를 수동으로 처리
+        const ws_data = [];
+        
+        // 수동으로 헤더 정의 (주어진 컬럼명 순서대로 추가)
+        const headers = [
+            'ID', 'START_TIME', 'END_TIME', 'RUN_TIME', 'SORT_TYPE', 'MACHINE', 'LOT_ID', 'SLOT', 'STEP',
+            'DEVICE_PPID', 'TOP_POSITION', 'CENTER_POSITION', 'BOTTOM_POSITION', 'LEFT_POSITION', 'RIGHT_POSITION',
+            'SETUP_DIE', 'OD_VALUE', 'FIRST_DIE_XY', 'WAFER_LOADING_POS_X', 'WAFER_LOADING_POS_Y', 'WAFER_LOADING_POS_Z',
+            'POLYGON_TYPE', 'VERTEX_LENGTH', 'SANDING_COUNT', 'SANDING_OD', 'PROBE_CARD_DEPTH', 'WAFER_ALIGN_VALUE_X',
+            'WAFER_ALIGN_VALUE_Y', 'PIN_ALIGN_VALUE_Z', 'WAFER_SETUP_FLATNESS', 'CREATED_DATE'
+        ];
+        ws_data.push(headers); // 헤더를 첫 번째 행으로 추가
+
+        // 데이터 추가
+        const rows = Array.from(tableSelect.querySelectorAll('tbody tr'));
+        rows.forEach(row => {
+            const rowData = Array.from(row.querySelectorAll('td')).map(td => td.textContent);
+            ws_data.push(rowData);
+        });
+
+        // 워크시트 생성
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+
+        // 엑셀 파일 생성 및 다운로드
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+
+        function s2ab(s) {
+            const buf = new ArrayBuffer(s.length);
+            const view = new Uint8Array(buf);
+            for (let i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xFF;
+            return buf;
+        }
+
+        const blob = new Blob([s2ab(wbout)], { type: "application/octet-stream" });
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.download = filename ? filename + '.xlsx' : 'excel_data.xlsx';
+        downloadLink.click();
+    }
+
+</script>
+
+<script>
+    window.addEventListener('message', function(event) {
+        if (event.data.action === 'closeFinishModal') {
+            const finishModal = document.getElementById('finishModal');
+            if (finishModal) {
+                finishModal.remove();
+            }
+        }
+    });
+</script>
+
+<!-- Autobe Check 모달 -->
+<div id="autobeModal" class="autobe-modal" style="display: none;">
+    <div class="autobe-modal-overlay" onclick="closeAutobeModal()"></div>
+    <div class="autobe-modal-content">
+        <div class="autobe-modal-header">
+            <h1>Autobe Check</h1>
+            <button class="autobe-close-btn" onclick="closeAutobeModal()">×</button>
+        </div>
+        
+        <!-- 탭 버튼 -->
+        <div class="autobe-tab-container">
+            <button class="autobe-tab-button active" data-tab="a-team">A조</button>
+            <button class="autobe-tab-button" data-tab="b-team">B조</button>
+            <button class="autobe-tab-button" data-tab="c-team">C조</button>
+        </div>
+        
+        <!-- A조 컨텐츠 -->
+        <div id="a-team" class="autobe-tab-content active">
+            <div class="autobe-content-card">
+                <h2>A조 데이터<span id="a-team-count" class="equipment-count" style="display: none;">
+                    Autobe 미진행 장비는 <span class="count-number">0</span>대 입니다.
+                </span></h2>
+                <div id="a-team-loading" class="autobe-loading">데이터를 로딩 중입니다...</div>
+                <div id="a-team-table" class="autobe-table-container" style="display: none;">
+                    <table class="autobe-data-table">
+                        <thead>
+                            <tr>
+                                <th data-column="EQPID" data-type="string">
+                                    장비 ID<span class="sort-icon">⇅</span>
+                                </th>
+                                <th data-column="RPA_TIME" data-type="time">
+                                    RPA 시간<span class="sort-icon">⇅</span>
+                                </th>
+                                <th data-column="LOT_ID" data-type="string">
+                                    LOT ID<span class="sort-icon">⇅</span>
+                                </th>
+                                <th data-column="DEVICE_ID" data-type="string">
+                                    디바이스 ID<span class="sort-icon">⇅</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="a-team-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- B조 컨텐츠 -->
+        <div id="b-team" class="autobe-tab-content">
+            <div class="autobe-content-card">
+                <h2>B조 데이터<span id="b-team-count" class="equipment-count" style="display: none;">
+                    Autobe 미진행 장비는 <span class="count-number">0</span>대 입니다.
+                </span></h2>
+                <div id="b-team-loading" class="autobe-loading">데이터를 로딩 중입니다...</div>
+                <div id="b-team-table" class="autobe-table-container" style="display: none;">
+                    <table class="autobe-data-table">
+                        <thead>
+                            <tr>
+                                <th data-column="EQPID" data-type="string">
+                                    장비 ID<span class="sort-icon">⇅</span>
+                                </th>
+                                <th data-column="RPA_TIME" data-type="time">
+                                    RPA 시간<span class="sort-icon">⇅</span>
+                                </th>
+                                <th data-column="LOT_ID" data-type="string">
+                                    LOT ID<span class="sort-icon">⇅</span>
+                                </th>
+                                <th data-column="DEVICE_ID" data-type="string">
+                                    디바이스 ID<span class="sort-icon">⇅</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="b-team-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- C조 컨텐츠 -->
+        <div id="c-team" class="autobe-tab-content">
+            <div class="autobe-content-card">
+                <h2>C조 데이터<span id="c-team-count" class="equipment-count" style="display: none;">
+                    Autobe 미진행 장비는 <span class="count-number">0</span>대 입니다.
+                </span></h2>
+                <div id="c-team-loading" class="autobe-loading">데이터를 로딩 중입니다...</div>
+                <div id="c-team-table" class="autobe-table-container" style="display: none;">
+                    <table class="autobe-data-table">
+                        <thead>
+                            <tr>
+                                <th data-column="EQPID" data-type="string">
+                                    장비 ID<span class="sort-icon">⇅</span>
+                                </th>
+                                <th data-column="RPA_TIME" data-type="time">
+                                    RPA 시간<span class="sort-icon">⇅</span>
+                                </th>
+                                <th data-column="LOT_ID" data-type="string">
+                                    LOT ID<span class="sort-icon">⇅</span>
+                                </th>
+                                <th data-column="DEVICE_ID" data-type="string">
+                                    디바이스 ID<span class="sort-icon">⇅</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="c-team-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 비밀번호 입력 모달 -->
+<div id="passwordModal" class="password-modal">
+    <div class="password-modal-overlay"></div>
+    <div class="password-modal-content">
+        <div class="password-modal-header">
+            <h2>🔐 개발자 권한 인증</h2>
+        </div>
+        <input type="password" id="developerPassword" class="password-input" placeholder="개발자 비밀번호를 입력하세요" />
+        <div class="password-modal-buttons">
+            <button class="password-modal-btn cancel">취소</button>
+            <button class="password-modal-btn confirm">확인</button>
+        </div>
+    </div>
+</div>
+
+<!-- 팀 선택 모달 -->
+<div id="teamSelectionModal" class="team-selection-modal">
+    <div class="team-selection-modal-overlay"></div>
+    <div class="team-selection-modal-content">
+        <div class="team-selection-modal-header">
+            <h2>📋 어느 조에 적용하시겠습니까?</h2>4244
+        </div>
+        <div class="team-buttons">
+            <button class="team-btn">🅰️ A조 (07:05 스케줄)</button>
+            <button class="team-btn">🅱️ B조 (15:05 스케줄)</button>
+            <button class="team-btn">🅲 C조 (23:05 스케줄)</button>
+        </div>
+        <button class="team-selection-cancel">취소</button>
+    </div>
+</div>
+
+<style>
+    /* 비밀번호 모달 스타일 */
+    .password-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 15000;
+    }
+
+    .password-modal-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+    }
+
+    .password-modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(145deg, #1a1a2e, #16213e);
+        border: 2px solid #00ffff;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+        min-width: 400px;
+    }
+
+    .password-modal-header h2 {
+        color: #00ffff;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+        text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    }
+
+    .password-input {
+        width: 100%;
+        padding: 12px 16px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 2px solid #00ffff;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 1rem;
+        margin-bottom: 1.5rem;
+        outline: none;
+        transition: all 0.3s ease;
+    }
+
+    .password-input:focus {
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        border-color: #ff6b6b;
+    }
+
+    .password-modal-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .password-modal-btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        min-width: 100px;
+    }
+
+    .password-modal-btn.cancel {
+        background: #6c757d;
+        color: white;
+    }
+
+    .password-modal-btn.cancel:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+    }
+
+    .password-modal-btn.confirm {
+        background: linear-gradient(145deg, #00ffff, #0088cc);
+        color: #000;
+    }
+
+    .password-modal-btn.confirm:hover {
+        background: linear-gradient(145deg, #00cccc, #006699);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4);
+    }
+
+    /* 팀 선택 모달 스타일 */
+    .team-selection-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 15500;
+    }
+
+    .team-selection-modal-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+    }
+
+    .team-selection-modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(145deg, #1a1a2e, #16213e);
+        border: 2px solid #ff6b6b;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 0 30px rgba(255, 107, 107, 0.3);
+        min-width: 450px;
+    }
+
+    .team-selection-modal-header h2 {
+        color: #ff6b6b;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-size: 1.4rem;
+        text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+    }
+
+    .team-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .team-btn {
+        padding: 15px 20px;
+        background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+        border: 2px solid #00ffff;
+        border-radius: 10px;
+        color: #00ffff;
+        cursor: pointer;
+        font-size: 1.1rem;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+
+    .team-btn:hover {
+        background: linear-gradient(145deg, #00ffff, #0088cc);
+        color: #000;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4);
+    }
+
+    .team-selection-cancel {
+        width: 100%;
+        padding: 12px 24px;
+        background: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+
+    .team-selection-cancel:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+    }
+
+    /* 토스트 메시지 스타일 */
+    .toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 16px 24px;
+        border-radius: 8px;
+        color: white;
+        font-weight: bold;
+        z-index: 16000;
+        transform: translateX(400px);
+        transition: all 0.3s ease;
+        max-width: 400px;
+        word-wrap: break-word;
+    }
+
+    .toast.show {
+        transform: translateX(0);
+    }
+
+    .toast.info {
+        background: linear-gradient(145deg, #17a2b8, #138496);
+    }
+
+    .toast.success {
+        background: linear-gradient(145deg, #28a745, #1e7e34);
+    }
+
+    .toast.error {
+        background: linear-gradient(145deg, #dc3545, #c82333);
+    }
+
+    /* 수동 업데이트 버튼 스타일 */
+    .autobe-manual-update-btn {
+        background: linear-gradient(145deg, #ff6b6b, #ee5a52);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        position: absolute;
+        top: 20px;
+        right: 60px;
+    }
+
+    .autobe-manual-update-btn:hover {
+        background: linear-gradient(145deg, #ff5252, #d32f2f);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+    }
+</style>
+
+</body>
+</html>

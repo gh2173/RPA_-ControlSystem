@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025. 8. 27. 오후 3:19:43",
+  "team": "A-TEAM",
+  "recipients": [
+    "lgh0820@nepes.co.kr"
+  ],
+  "dataCount": 3,
+  "subject": "[RPA ADMIN] A-TEAM 실행 완료 알림 - 2025. 8. 27. 오후 3:19:43",
+  "status": "실행 완료",
+  "message": "Excel 백업 파일이 생성되었습니다."
+}

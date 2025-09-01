@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPA Remote Control Interface</title>
+<style>
+/* AI스럽고 3D 느낌의 단순 단색 그라데이션, 순수 CSS, 크롬 최적화, 폐쇄망 대응 */
+@font-face {
+  font-family: 'Pacifico';
+  src: url('/public/fonts/Pacifico-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+body, h1, h2, h3, h4 {
+  font-family: '맑은 고딕', 'Malgun Gothic', sans-serif;
+  font-weight: bold;
+}
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: linear-gradient(135deg, #4987c5bb 0%, #6366f1 100%); /* 단색 계열 그라데이션 */
+  position: relative;
+  overflow-x: hidden;
+}
+body::before {
+  content: "";
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.10) 0, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.08) 0, transparent 40%);
+}
+.spot-card {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  box-shadow: 0 6px 24px 0 rgba(60, 80, 180, 0.10), 0 1.5px 4px 0 rgba(60, 80, 180, 0.08);
+  border: none;
+  padding: 2rem 1.5rem;
+  margin-bottom: 1.5rem;
+  transition: transform 0.2s cubic-bezier(.4,2,.6,1), box-shadow 0.2s;
+  position: relative;
+}
+.spot-card:hover {
+  transform: translateY(-8px) scale(1.03);
+  box-shadow: 0 16px 40px 0 rgba(60, 80, 180, 0.18), 0 2px 8px 0 rgba(60, 80, 180, 0.10);
+}
+.equipment-icon {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px 0 rgba(60, 80, 180, 0.10);
+  border: none;
+  padding: 1.2rem 0.5rem 1rem 0.5rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.15s;
+  position: relative;
+}
+.equipment-icon:hover {
+  box-shadow: 0 8px 24px 0 rgba(60, 80, 180, 0.18);
+  transform: scale(1.04);
+}
+.equipment-icon.tester {
+  box-shadow: 0 0 0 3px #10b98133;
+}
+.equipment-icon.prober {
+  box-shadow: 0 0 0 3px #f59e0b33;
+}
+.equipment-image-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1/1;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px 0 rgba(60, 80, 180, 0.07);
+  margin-bottom: 0.7rem;
+}
+.equipment-image {
+  max-width: 80%;
+  max-height: 80%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  filter: drop-shadow(0 2px 8px rgba(60,80,180,0.10));
+  transition: transform 0.2s;
+}
+.equipment-icon:hover .equipment-image {
+  transform: scale(1.07);
+}
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2.2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+@media (max-width: 1100px) {
+  .grid-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.2rem;
+  }
+}
+@media (max-width: 700px) {
+  .grid-container {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+.equipment-status-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 0.3em;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  background: #10b981;
+  border: 2px solid #fff;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.equipment-status-indicator.bg-yellow-400 {
+  background: #f59e0b;
+}
+.equipment-status-indicator.bg-green-400 {
+  background: #10b981;
+}
+.modal-overlay {
+  background: rgba(30, 41, 59, 0.45);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+}
+.modal-content {
+  background: #ffffffff;
+  border-radius: 18px;
+  box-shadow: 0 12px 32px 0 rgba(60, 80, 180, 0.18);
+  padding: 2.5rem 2rem 2rem 2rem;
+  position: relative;
+}
+.search-highlight {
+  animation: highlight 2s ease-in-out;
+  border: 2.5px solid #3b82f6 !important;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.25) !important;
+}
+@keyframes highlight {
+  0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.25); }
+  50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.45); }
+}
+/* 버튼, 입력 등 기본 스타일 */
+button, input[type="text"], input[type="password"] {
+  font-family: '맑은 고딕', 'Malgun Gothic', sans-serif;
+  font-weight: bold;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+  box-shadow: 0 1px 4px 0 rgba(60, 80, 180, 0.07);
+}
+button {
+  background: linear-gradient(90deg, #3b82f6 60%, #6366f1 100%);
+  color: #fff;
+  padding: 0.6em 1.2em;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  border: none;
+}
+button:hover {
+  background: linear-gradient(90deg, #6366f1 60%, #3b82f6 100%);
+  box-shadow: 0 2px 8px 0 rgba(60, 80, 180, 0.13);
+}
+input[type="text"], input[type="password"] {
+  background: #f3f4f6;
+  padding: 0.7em 1em;
+  font-size: 1rem;
+  border: 1.5px solid #e5e7eb;
+  margin-bottom: 0.5em;
+  transition: border 0.2s;
+}
+input[type="text"]:focus, input[type="password"]:focus {
+  border: 1.5px solid #3b82f6;
+}
+.bg-white\/80, .bg-white\/90, .bg-white {
+  background: rgba(255,255,255,0.90) !important;
+}
+.text-gray-800 { color: #22223b !important; font-weight: bold; }
+.text-gray-600 { color: #2d3748 !important; font-weight: bold; }
+.text-gray-500 { color: #4a5568 !important; font-weight: bold; }
+.font-bold { font-weight: bold; }
+.font-medium { font-weight: bold; }
+.rounded-xl { border-radius: 18px !important; }
+.rounded-lg { border-radius: 14px !important; }
+.rounded-md { border-radius: 10px !important; }
+.rounded { border-radius: 8px !important; }
+.p-6 { padding: 1.5rem !important; }
+.p-8 { padding: 2rem !important; }
+.mb-4 { margin-bottom: 1rem !important; }
+.mb-6 { margin-bottom: 1.5rem !important; }
+.mt-6 { margin-top: 1.5rem !important; }
+.mt-16 { margin-top: 4rem !important; }
+.mx-auto { margin-left: auto !important; margin-right: auto !important; }
+.text-center { text-align: center !important; }
+.flex { display: flex !important; }
+.items-center { align-items: center !important; }
+.justify-between { justify-content: space-between !important; }
+.justify-center { justify-content: center !important; }
+.gap-2 { gap: 0.5rem !important; }
+.gap-4 { gap: 1rem !important; }
+.w-full { width: 100% !important; }
+.w-80 { width: 20rem !important; }
+.w-96 { width: 24rem !important; }
+.max-w-md { max-width: 28rem !important; }
+.max-w-7xl { max-width: 80rem !important; }
+.absolute { position: absolute !important; }
+.relative { position: relative !important; }
+.fixed { position: fixed !important; }
+.inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+.z-50 { z-index: 50 !important; }
+.z-10 { z-index: 10 !important; }
+.hidden { display: none !important; }
+.block { display: block !important; }
+.border { border: 1.5px solid #e5e7eb !important; }
+.border-b { border-bottom: 1.5px solid #e5e7eb !important; }
+.last\:border-b-0:last-child { border-bottom: 0 !important; }
+.overflow-hidden { overflow: hidden !important; }
+.text-lg { font-size: 1.125rem !important; }
+.text-xl { font-size: 1.25rem !important; }
+.text-sm { font-size: 0.875rem !important; }
+.text-4xl { font-size: 2.25rem !important; }
+.px-4 { padding-left: 1rem !important; padding-right: 1rem !important; }
+.py-2 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+.pl-10 { padding-left: 2.5rem !important; }
+.mb-1 { margin-bottom: 0.25rem !important; }
+.mb-2 { margin-bottom: 0.5rem !important; }
+.mb-3 { margin-bottom: 0.75rem !important; }
+.space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.25rem !important; }
+.border-gray-200 { border-color: #e5e7eb !important; }
+.border-gray-300 { border-color: #d1d5db !important; }
+.bg-gray-50 { background: #f9fafb !important; }
+.bg-gray-200 { background: #e5e7eb !important; }
+.bg-gray-600 { background: #4b5563 !important; }
+.bg-gray-700 { background: #374151 !important; }
+.hover\:bg-gray-300:hover { background: #d1d5db !important; }
+.hover\:bg-gray-700:hover { background: #374151 !important; }
+.hover\:bg-blue-700:hover { background: #1d4ed8 !important; }
+.hover\:shadow-lg:hover { box-shadow: 0 8px 24px 0 rgba(60, 80, 180, 0.18) !important; }
+.transition-colors { transition: background 0.2s, color 0.2s !important; }
+.transition-all { transition: all 0.2s !important; }
+.duration-200 { transition-duration: 0.2s !important; }
+.duration-300 { transition-duration: 0.3s !important; }
+.active\:scale-95:active { transform: scale(0.95) !important; }
+.font-semibold { font-weight: bold !important; }
+.shadow-lg { box-shadow: 0 8px 24px 0 rgba(60, 80, 180, 0.18) !important; }
+.shadow { box-shadow: 0 2px 8px 0 rgba(60, 80, 180, 0.10) !important; }
+.backdrop-blur-sm { backdrop-filter: blur(6px) !important; }
+</style>
+</head>
+<body>
+<div class="min-h-screen p-6 relative">
+<div class="absolute inset-0 bg-black/20 backdrop-blur-sm"></div>
+<div class="max-w-7xl mx-auto relative">
+<header class="text-center mb-12">
+<div class="flex justify-between items-center mb-6">
+<button onclick="window.location.href='/Ark_RPA_Control_system'" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+← 메인으로 돌아가기
+</button>
+<div class="flex-1"></div>
+</div>
+<h1 class="text-4xl font-bold text-gray-800 mb-4">RPA Remote Control Interface</h1>
+<p class="text-lg text-gray-600">RPA 장비 원격 제어 시스템</p>
+
+<!-- 장비 검색 기능 -->
+<div class="mt-6 mb-6 flex justify-center">
+  <div class="relative w-80">
+    <input 
+      id="equipment-search" 
+      type="text" 
+      placeholder="장비명 검색 (예: UTS35)" 
+      class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white/90 backdrop-blur-sm"
+    />
+    <div class="absolute left-3 top-2.5">
+      <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+      </svg>
+    </div>
+    <div id="search-results" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden z-10">
+      <!-- 검색 결과가 여기에 표시됩니다 -->
+    </div>
+  </div>
+</div>
+
+<div class="mt-6 flex items-center justify-center gap-4">
+<div class="flex items-center gap-2">
+<div class="status-indicator"></div>
+<span class="text-sm text-gray-600">시스템 온라인</span>
+</div>
+<div class="text-sm text-gray-500">
+총 <span id="spot-count-number" class="font-semibold text-gray-800">12</span>개 Spot 운영 중
+</div>
+</div>
+</header>
+<main>
+<div class="grid-container" id="equipment-list">
+  <!-- 설비 카드가 JS로 동적으로 생성됩니다. -->
+</div>
+</main>
+<footer class="mt-16 text-center">
+<div class="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200">
+<p class="text-gray-600 mb-2">Remote Control System v2.1</p>
+<p class="text-sm text-gray-500">장비 연결 상태: 실시간 모니터링 중</p>
+</div>
+</footer>
+</div>
+</div>
+
+<!-- 인증 모달 -->
+<div id="pw-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden">
+  <div class="modal-content p-8 w-96 max-w-md mx-4">
+    <h2 class="text-lg font-bold mb-4 text-gray-800">원격 접속 인증</h2>
+    
+    <!-- 장비 인스턴스 정보 -->
+    <div id="equipment-info" class="bg-gray-50 rounded-lg p-4 mb-4 border">
+      <h3 class="text-sm font-semibold text-gray-700 mb-2">접속 대상 장비</h3>
+      <div class="space-y-1 text-sm">
+        <div class="flex justify-between">
+          <span class="text-gray-600">장비명:</span>
+          <span id="modal-equipment-name" class="font-medium text-gray-800">-</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">타입:</span>
+          <span id="modal-equipment-type" class="font-medium text-gray-800">-</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">IP 주소:</span>
+          <span id="modal-equipment-ip" class="font-medium text-gray-800">-</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">포트:</span>
+          <span id="modal-equipment-port" class="font-medium text-gray-800">-</span>
+        </div>
+      </div>
+    </div>
+    
+    <p class="text-sm text-gray-600 mb-4">원격 접속을 위해 비밀번호를 입력하세요.</p>
+    <input id="pw-input" type="password" placeholder="비밀번호 입력" 
+           class="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+    <div id="pw-error" class="text-red-500 text-sm mb-3 hidden">비밀번호가 올바르지 않습니다.</div>
+    <div class="flex justify-end gap-2">
+      <button id="pw-cancel" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">취소</button>
+      <button id="pw-confirm" class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-blue-700 transition-colors">확인</button>
+    </div>
+  </div>
+</div>
+
+<script id="equipment-interaction">
+document.addEventListener('DOMContentLoaded', function() {
+// 실제 데이터 테이블 기반 장비 정보 (73개 장비, 각 장비별 prober/tester)
+const equipmentData = [
+  { name: 'UTS35', prober: { ip: '192.168.183.11', url: 'https://192.168.183.11:444/#/signin' }, tester: { ip: '192.168.183.12', url: 'https://192.168.183.12/#/signin' } },
+  { name: 'UTS38', prober: { ip: '192.168.183.14', url: 'https://192.168.183.14:444/#/signin' }, tester: { ip: '192.168.183.15', url: 'https://192.168.183.15/#/signin' } },
+  { name: 'UTS39', prober: { ip: '192.168.183.17', url: 'https://192.168.183.17:444/#/signin' }, tester: { ip: '192.168.183.18', url: 'https://192.168.183.18/#/signin' } },
+  { name: 'UTS40', prober: { ip: '192.168.183.20', url: 'https://192.168.183.20:444/#/signin' }, tester: { ip: '192.168.183.21', url: 'https://192.168.183.21/#/signin' } },
+  { name: 'UTS50', prober: { ip: '192.168.183.23', url: 'https://192.168.183.23:444/#/signin' }, tester: { ip: '192.168.183.24', url: 'https://192.168.183.24/#/signin' } },
+  { name: 'UTS52', prober: { ip: '192.168.183.26', url: 'https://192.168.183.26:444/#/signin' }, tester: { ip: '192.168.183.27', url: 'https://192.168.183.27/#/signin' } },
+  { name: 'UTS22', prober: { ip: '192.168.183.29', url: 'https://192.168.183.29:444/#/signin' }, tester: { ip: '192.168.183.30', url: 'https://192.168.183.30/#/signin' } },
+  { name: 'UTS19', prober: { ip: '192.168.183.32', url: 'https://192.168.183.32:444/#/signin' }, tester: { ip: '192.168.183.33', url: 'https://192.168.183.33/#/signin' } },
+  { name: 'UTS18', prober: { ip: '192.168.183.35', url: 'https://192.168.183.35:444/#/signin' }, tester: { ip: '192.168.183.36', url: 'https://192.168.183.36/#/signin' } },
+  { name: 'UTS43', prober: { ip: '192.168.183.38', url: 'https://192.168.183.38:444/#/signin' }, tester: { ip: '192.168.183.39', url: 'https://192.168.183.39/#/signin' } },
+  { name: 'UTS47', prober: { ip: '192.168.183.41', url: 'https://192.168.183.41:444/#/signin' }, tester: { ip: '192.168.183.42', url: 'https://192.168.183.42/#/signin' } },
+  { name: 'UTS16', prober: { ip: '192.168.183.44', url: 'https://192.168.183.44:444/#/signin' }, tester: { ip: '192.168.183.45', url: 'https://192.168.183.45/#/signin' } },
+  { name: 'UTS17', prober: { ip: '192.168.183.47', url: 'https://192.168.183.47:444/#/signin' }, tester: { ip: '192.168.183.48', url: 'https://192.168.183.48/#/signin' } },
+  { name: 'UTS28', prober: { ip: '192.168.183.50', url: 'https://192.168.183.50:444/#/signin' }, tester: { ip: '192.168.183.51', url: 'https://192.168.183.51/#/signin' } },
+  { name: 'UTS34', prober: { ip: '192.168.183.53', url: 'https://192.168.183.53:444/#/signin' }, tester: { ip: '192.168.183.54', url: 'https://192.168.183.54/#/signin' } },
+  { name: 'UTS23', prober: { ip: '192.168.183.56', url: 'https://192.168.183.56:444/#/signin' }, tester: { ip: '192.168.183.57', url: 'https://192.168.183.57/#/signin' } },
+  { name: 'UTS33', prober: { ip: '192.168.183.59', url: 'https://192.168.183.59:444/#/signin' }, tester: { ip: '192.168.183.60', url: 'https://192.168.183.60/#/signin' } },
+  { name: 'UTS12', prober: { ip: '192.168.183.62', url: 'https://192.168.183.62:444/#/signin' }, tester: { ip: '192.168.183.63', url: 'https://192.168.183.63/#/signin' } },
+  { name: 'UTS25', prober: { ip: '192.168.183.65', url: 'https://192.168.183.65:444/#/signin' }, tester: { ip: '192.168.183.66', url: 'https://192.168.183.66/#/signin' } },
+  { name: 'UTS11', prober: { ip: '192.168.183.68', url: 'https://192.168.183.68:444/#/signin' }, tester: { ip: '192.168.183.69', url: 'https://192.168.183.69/#/signin' } },
+  { name: 'UTS24', prober: { ip: '192.168.183.71', url: 'https://192.168.183.71:444/#/signin' }, tester: { ip: '192.168.183.72', url: 'https://192.168.183.72/#/signin' } },
+  { name: 'UTS51', prober: { ip: '192.168.183.74', url: 'https://192.168.183.74:444/#/signin' }, tester: { ip: '192.168.183.75', url: 'https://192.168.183.75/#/signin' } },
+  { name: 'UTS44', prober: { ip: '192.168.183.77', url: 'https://192.168.183.77:444/#/signin' }, tester: { ip: '192.168.183.78', url: 'https://192.168.183.78/#/signin' } },
+  { name: 'UTC53', prober: { ip: '192.168.183.80', url: 'https://192.168.183.80:444/#/signin' }, tester: { ip: '192.168.183.81', url: 'https://192.168.183.81/#/signin' } },
+  { name: 'UTS45', prober: { ip: '192.168.183.83', url: 'https://192.168.183.83:444/#/signin' }, tester: { ip: '192.168.183.84', url: 'https://192.168.183.84/#/signin' } },
+  { name: 'UTS30', prober: { ip: '192.168.183.86', url: 'https://192.168.183.86:444/#/signin' }, tester: { ip: '192.168.183.87', url: 'https://192.168.183.87/#/signin' } },
+  { name: 'UTS29', prober: { ip: '192.168.183.89', url: 'https://192.168.183.89:444/#/signin' }, tester: { ip: '192.168.183.90', url: 'https://192.168.183.90/#/signin' } },
+  { name: 'UTS46', prober: { ip: '192.168.183.92', url: 'https://192.168.183.92:444/#/signin' }, tester: { ip: '192.168.183.93', url: 'https://192.168.183.93/#/signin' } },
+  { name: 'UTS37', prober: { ip: '192.168.183.95', url: 'https://192.168.183.95:444/#/signin' }, tester: { ip: '192.168.183.96', url: 'https://192.168.183.96/#/signin' } },
+  { name: 'UTS32', prober: { ip: '192.168.183.98', url: 'https://192.168.183.98:444/#/signin' }, tester: { ip: '192.168.183.99', url: 'https://192.168.183.99/#/signin' } },
+  { name: 'UTS48', prober: { ip: '192.168.183.101', url: 'https://192.168.183.101:444/#/signin' }, tester: { ip: '192.168.183.102', url: 'https://192.168.183.102/#/signin' } },
+  { name: 'UTS31', prober: { ip: '192.168.183.104', url: 'https://192.168.183.104:444/#/signin' }, tester: { ip: '192.168.183.105', url: 'https://192.168.183.105/#/signin' } },
+  { name: 'UTS15', prober: { ip: '192.168.183.107', url: 'https://192.168.183.107:444/#/signin' }, tester: { ip: '192.168.183.108', url: 'https://192.168.183.108/#/signin' } },
+  { name: 'UTS49', prober: { ip: '192.168.183.110', url: 'https://192.168.183.110:444/#/signin' }, tester: { ip: '192.168.183.111', url: 'https://192.168.183.111/#/signin' } },
+  { name: 'UTS14', prober: { ip: '192.168.183.113', url: 'https://192.168.183.113:444/#/signin' }, tester: { ip: '192.168.183.114', url: 'https://192.168.183.114/#/signin' } },
+  { name: 'UTS27', prober: { ip: '192.168.183.116', url: 'https://192.168.183.116:444/#/signin' }, tester: { ip: '192.168.183.117', url: 'https://192.168.183.117/#/signin' } },
+  { name: 'UTS13', prober: { ip: '192.168.183.119', url: 'https://192.168.183.119:444/#/signin' }, tester: { ip: '192.168.183.120', url: 'https://192.168.183.120/#/signin' } },
+  { name: 'UTS21', prober: { ip: '192.168.183.122', url: 'https://192.168.183.122:444/#/signin' }, tester: { ip: '192.168.183.123', url: 'https://192.168.183.123/#/signin' } },
+  { name: 'UTS41', prober: { ip: '192.168.183.125', url: 'https://192.168.183.125:444/#/signin' }, tester: { ip: '192.168.183.126', url: 'https://192.168.183.126/#/signin' } },
+  { name: 'UTS36', prober: { ip: '192.168.183.128', url: 'https://192.168.183.128:444/#/signin' }, tester: { ip: '192.168.183.129', url: 'https://192.168.183.129/#/signin' } },
+  { name: 'UTS20', prober: { ip: '192.168.183.131', url: 'https://192.168.183.131:444/#/signin' }, tester: { ip: '192.168.183.132', url: 'https://192.168.183.132/#/signin' } },
+  { name: 'UTS26', prober: { ip: '192.168.183.134', url: 'https://192.168.183.134:444/#/signin' }, tester: { ip: '192.168.183.135', url: 'https://192.168.183.135/#/signin' } },
+  { name: 'UTC58', prober: { ip: '192.168.183.231', url: 'https://192.168.183.231:444/#/signin' }, tester: { ip: '192.168.183.232', url: 'https://192.168.183.232/#/signin' } },
+  { name: 'UTC57', prober: { ip: '192.168.183.140', url: 'https://192.168.183.140:444/#/signin' }, tester: { ip: '192.168.183.141', url: 'https://192.168.183.141/#/signin' } },
+  { name: 'UTC56', prober: { ip: '192.168.183.143', url: 'https://192.168.183.143:444/#/signin' }, tester: { ip: '192.168.183.144', url: 'https://192.168.183.144/#/signin' } },
+  { name: 'UTC55', prober: { ip: '192.168.183.146', url: 'https://192.168.183.146:444/#/signin' }, tester: { ip: '192.168.183.147', url: 'https://192.168.183.147/#/signin' } },
+  { name: 'UTC54', prober: { ip: '192.168.183.149', url: 'https://192.168.183.149:444/#/signin' }, tester: { ip: '192.168.183.150', url: 'https://192.168.183.150/#/signin' } },
+  { name: 'UTC78', prober: { ip: '192.168.183.152', url: 'https://192.168.183.152:444/#/signin' }, tester: { ip: '192.168.183.153', url: 'https://192.168.183.153/#/signin' } },
+  { name: 'UTC67', prober: { ip: '192.168.183.155', url: 'https://192.168.183.155:444/#/signin' }, tester: { ip: '192.168.183.156', url: 'https://192.168.183.156/#/signin' } },
+  { name: 'UTC68', prober: { ip: '192.168.183.158', url: 'https://192.168.183.158:444/#/signin' }, tester: { ip: '192.168.183.159', url: 'https://192.168.183.159/#/signin' } },
+  { name: 'UTC69', prober: { ip: '192.168.183.161', url: 'https://192.168.183.161:444/#/signin' }, tester: { ip: '192.168.183.162', url: 'https://192.168.183.162/#/signin' } },
+  { name: 'UTC70', prober: { ip: '192.168.183.164', url: 'https://192.168.183.164:444/#/signin' }, tester: { ip: '192.168.183.165', url: 'https://192.168.183.165/#/signin' } },
+  { name: 'UTC71', prober: { ip: '192.168.183.167', url: 'https://192.168.183.167:444/#/signin' }, tester: { ip: '192.168.183.168', url: 'https://192.168.183.168/#/signin' } },
+  { name: 'UTC72', prober: { ip: '192.168.183.170', url: 'https://192.168.183.170:444/#/signin' }, tester: { ip: '192.168.183.171', url: 'https://192.168.183.171/#/signin' } },
+  { name: 'UTC63', prober: { ip: '192.168.183.173', url: 'https://192.168.183.173:444/#/signin' }, tester: { ip: '192.168.183.174', url: 'https://192.168.183.174/#/signin' } },
+  { name: 'UTC64', prober: { ip: '192.168.183.176', url: 'https://192.168.183.176:444/#/signin' }, tester: { ip: '192.168.183.177', url: 'https://192.168.183.177/#/signin' } },
+  { name: 'UTC65', prober: { ip: '192.168.183.179', url: 'https://192.168.183.179:444/#/signin' }, tester: { ip: '192.168.183.180', url: 'https://192.168.183.180/#/signin' } },
+  { name: 'UTC66', prober: { ip: '192.168.183.182', url: 'https://192.168.183.182:444/#/signin' }, tester: { ip: '192.168.183.183', url: 'https://192.168.183.183/#/signin' } },
+  { name: 'UTC73', prober: { ip: '192.168.183.185', url: 'https://192.168.183.185:444/#/signin' }, tester: { ip: '192.168.183.186', url: 'https://192.168.183.186/#/signin' } },
+  { name: 'UTC74', prober: { ip: '192.168.183.188', url: 'https://192.168.183.188:444/#/signin' }, tester: { ip: '192.168.183.189', url: 'https://192.168.183.189/#/signin' } },
+  { name: 'UTC75', prober: { ip: '192.168.183.191', url: 'https://192.168.183.191:444/#/signin' }, tester: { ip: '192.168.183.192', url: 'https://192.168.183.192/#/signin' } },
+  { name: 'UTC76', prober: { ip: '192.168.183.194', url: 'https://192.168.183.194:444/#/signin' }, tester: { ip: '192.168.183.195', url: 'https://192.168.183.195/#/signin' } },
+  { name: 'UTC77', prober: { ip: '192.168.183.197', url: 'https://192.168.183.197:444/#/signin' }, tester: { ip: '192.168.183.198', url: 'https://192.168.183.198/#/signin' } },
+  { name: 'UTC79', prober: { ip: '192.168.183.200', url: 'https://192.168.183.200:444/#/signin' }, tester: { ip: '192.168.183.201', url: 'https://192.168.183.201/#/signin' } },
+  { name: 'UTC80', prober: { ip: '192.168.183.203', url: 'https://192.168.183.203:444/#/signin' }, tester: { ip: '192.168.183.204', url: 'https://192.168.183.204/#/signin' } },
+  { name: 'UTC81', prober: { ip: '192.168.183.206', url: 'https://192.168.183.206:444/#/signin' }, tester: { ip: '192.168.183.207', url: 'https://192.168.183.207/#/signin' } },
+  { name: 'UTC82', prober: { ip: '192.168.183.210', url: 'https://192.168.183.210:444/#/signin' }, tester: { ip: '192.168.183.211', url: 'https://192.168.183.211/#/signin' } },
+  { name: 'UTC83', prober: { ip: '192.168.183.213', url: 'https://192.168.183.213:444/#/signin' }, tester: { ip: '192.168.183.214', url: 'https://192.168.183.214/#/signin' } },
+  { name: 'UTC62', prober: { ip: '192.168.183.216', url: 'https://192.168.183.216:444/#/signin' }, tester: { ip: '192.168.183.217', url: 'https://192.168.183.217/#/signin' } },
+  { name: 'UTC61', prober: { ip: '192.168.183.219', url: 'https://192.168.183.219:444/#/signin' }, tester: { ip: '192.168.183.220', url: 'https://192.168.183.220/#/signin' } },
+  { name: 'UTC60', prober: { ip: '192.168.183.222', url: 'https://192.168.183.222:444/#/signin' }, tester: { ip: '192.168.183.223', url: 'https://192.168.183.223/#/signin' } },
+  { name: 'UTC59', prober: { ip: '192.168.183.225', url: 'https://192.168.183.225:444/#/signin' }, tester: { ip: '192.168.183.226', url: 'https://192.168.183.226/#/signin' } },
+  { name: 'UTS42', prober: { ip: '192.168.183.228', url: 'https://192.168.183.228:444/#/signin' }, tester: { ip: '192.168.183.229', url: 'https://192.168.183.229/#/signin' } },
+];
+
+// 카드 생성 함수
+const equipmentList = document.getElementById('equipment-list');
+equipmentList.innerHTML = equipmentData.map(eq => `
+  <div class="spot-card rounded-xl p-6" data-equipment-name="${eq.name.toLowerCase()}">
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="text-xl font-semibold text-gray-800">${eq.name}</h3>
+      <div class="flex items-center gap-2">
+        <div class="equipment-status-indicator w-3 h-3 bg-green-400 rounded-full" data-equipment="${eq.name}"></div>
+        <span class="equipment-status-text text-sm text-gray-600" data-equipment="${eq.name}">사용 가능</span>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="equipment-icon tester rounded-lg p-4 text-center cursor-pointer hover:shadow-lg transition-all duration-300 active:scale-95" data-url="${eq.tester.url.replace('<IP>', eq.tester.ip)}" data-equipment="${eq.name}" data-type="tester">
+        <div class="w-full mb-3 overflow-hidden rounded-lg equipment-image-container">
+          <img src="tester.png" alt="Tester Machine" class="equipment-image">
+        </div>
+        <h4 class="font-medium text-gray-800 mb-1">Tester IP</h4>
+        <p class="text-xs text-gray-500">${eq.tester.ip}</p>
+      </div>
+      <div class="equipment-icon prober rounded-lg p-4 text-center cursor-pointer hover:shadow-lg transition-all duration-300 active:scale-95" data-url="${eq.prober.url.replace('<IP>', eq.prober.ip)}" data-equipment="${eq.name}" data-type="prober">
+        <div class="w-full mb-3 overflow-hidden rounded-lg equipment-image-container">
+          <img src="prober.png" alt="Prober Machine" class="equipment-image">
+        </div>
+</style>
+<style>
+.equipment-image-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1/1;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.equipment-image {
+  max-width: 90%;
+  max-height: 90%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+</style>
+        <h4 class="font-medium text-gray-800 mb-1">Prober IP</h4>
+        <p class="text-xs text-gray-500">${eq.prober.ip}</p>
+      </div>
+    </div>
+  </div>
+`).join('');
+
+// 장비 상태 관리 및 실시간 업데이트
+let currentUser = 'Admin'; // 실제 사용자 정보는 세션에서 가져올 수 있습니다
+let sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+let connectedEquipments = new Set(); // 현재 접속 중인 장비들
+
+// 장비 상태 업데이트 함수
+async function updateEquipmentStatus() {
+  try {
+    const response = await fetch('/api/equipment-status');
+    const equipmentStatus = await response.json();
+    
+    equipmentData.forEach(eq => {
+      const statusIndicator = document.querySelector(`.equipment-status-indicator[data-equipment="${eq.name}"]`);
+      const statusText = document.querySelector(`.equipment-status-text[data-equipment="${eq.name}"]`);
+      
+      if (statusIndicator && statusText) {
+        // 프로버나 테스터 중 하나라도 사용중이면 장비 전체가 사용중으로 표시
+        const proberInUse = equipmentStatus[`${eq.name}_prober`];
+        const testerInUse = equipmentStatus[`${eq.name}_tester`];
+        
+        if (proberInUse || testerInUse) {
+          // 사용 중인 상태
+          statusIndicator.className = 'equipment-status-indicator w-3 h-3 bg-yellow-400 rounded-full';
+          statusText.textContent = '사용 중';
+          
+          const users = [];
+          if (proberInUse) users.push(`Prober: ${proberInUse.user}`);
+          if (testerInUse) users.push(`Tester: ${testerInUse.user}`);
+          statusText.title = users.join(', ');
+        } else {
+          // 사용 가능한 상태
+          statusIndicator.className = 'equipment-status-indicator w-3 h-3 bg-green-400 rounded-full';
+          statusText.textContent = '사용 가능';
+          statusText.title = '';
+        }
+      }
+    });
+  } catch (error) {
+    console.error('장비 상태 업데이트 실패:', error);
+  }
+}
+
+// 장비 사용 시작 보고
+async function reportEquipmentUse(equipmentName, type) {
+  try {
+    const response = await fetch('/api/equipment-use', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: `${equipmentName}_${type}`,
+        user: currentUser,
+        sessionId: sessionId
+      })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      connectedEquipments.add(`${equipmentName}_${type}`);
+      console.log(`장비 사용 시작: ${equipmentName}_${type}`);
+      updateEquipmentStatus(); // 즉시 상태 업데이트
+    }
+  } catch (error) {
+    console.error('장비 사용 시작 보고 실패:', error);
+  }
+}
+
+// 장비 사용 종료 보고
+async function reportEquipmentRelease(equipmentName, type) {
+  try {
+    const response = await fetch('/api/equipment-use', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: `${equipmentName}_${type}`,
+        sessionId: sessionId
+      })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      connectedEquipments.delete(`${equipmentName}_${type}`);
+      console.log(`장비 사용 종료: ${equipmentName}_${type}`);
+      updateEquipmentStatus(); // 즉시 상태 업데이트
+    }
+  } catch (error) {
+    console.error('장비 사용 종료 보고 실패:', error);
+  }
+}
+
+// 페이지 언로드 시 모든 연결된 장비 해제
+window.addEventListener('beforeunload', function() {
+  connectedEquipments.forEach(equipmentKey => {
+    const [name, type] = equipmentKey.split('_');
+    fetch('/api/equipment-use', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: equipmentKey,
+        sessionId: sessionId
+      }),
+      keepalive: true // 페이지 언로드 시에도 요청 유지
+    });
+  });
+});
+
+// 5초마다 장비 상태 업데이트
+setInterval(updateEquipmentStatus, 5000);
+
+// 페이지 로드 시 초기 상태 업데이트
+updateEquipmentStatus();
+
+// Spot 개수 동적 표시
+const spotCountElem = document.getElementById('spot-count-number');
+if (spotCountElem) {
+  spotCountElem.textContent = equipmentData.length;
+}
+
+// 장비 검색 기능
+const searchInput = document.getElementById('equipment-search');
+const searchResults = document.getElementById('search-results');
+
+// 검색 입력 이벤트
+searchInput.addEventListener('input', function() {
+  const query = this.value.toLowerCase().trim();
+  
+  if (query.length === 0) {
+    searchResults.classList.add('hidden');
+    // 모든 카드 표시 및 하이라이트 제거
+    document.querySelectorAll('.spot-card').forEach(card => {
+      card.style.display = 'block';
+      card.classList.remove('search-highlight');
+    });
+    return;
+  }
+  
+  // 검색 결과 필터링
+  const filteredEquipment = equipmentData.filter(eq => 
+    eq.name.toLowerCase().includes(query)
+  );
+  
+  if (filteredEquipment.length > 0) {
+    // 검색 결과 드롭다운 표시
+    searchResults.innerHTML = filteredEquipment.map(eq => `
+      <div class="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0" data-equipment="${eq.name}">
+        <div class="font-medium text-gray-800">${eq.name}</div>
+        <div class="text-sm text-gray-500">Tester: ${eq.tester.ip} | Prober: ${eq.prober.ip}</div>
+      </div>
+    `).join('');
+    searchResults.classList.remove('hidden');
+    
+    // 검색 결과 클릭 이벤트
+    searchResults.querySelectorAll('[data-equipment]').forEach(item => {
+      item.addEventListener('click', function() {
+        const equipmentName = this.dataset.equipment;
+        searchInput.value = equipmentName;
+        searchResults.classList.add('hidden');
+        scrollToEquipment(equipmentName);
+      });
+    });
+  } else {
+    searchResults.innerHTML = '<div class="px-4 py-2 text-gray-500">검색 결과가 없습니다.</div>';
+    searchResults.classList.remove('hidden');
+  }
+});
+
+// 엔터키로 첫 번째 결과 선택
+searchInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const query = this.value.toLowerCase().trim();
+    const matchingEquipment = equipmentData.find(eq => 
+      eq.name.toLowerCase().includes(query)
+    );
+    
+    if (matchingEquipment) {
+      searchResults.classList.add('hidden');
+      scrollToEquipment(matchingEquipment.name);
+    }
+  }
+});
+
+// 검색창 외부 클릭 시 결과 숨기기
+document.addEventListener('click', function(e) {
+  if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+    searchResults.classList.add('hidden');
+  }
+});
+
+// 장비로 스크롤 이동 함수
+function scrollToEquipment(equipmentName) {
+  const targetCard = document.querySelector(`[data-equipment-name="${equipmentName.toLowerCase()}"]`);
+  
+  if (targetCard) {
+    // 모든 카드의 하이라이트 제거
+    document.querySelectorAll('.spot-card').forEach(card => {
+      card.classList.remove('search-highlight');
+    });
+    
+    // 대상 카드로 스크롤
+    targetCard.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'center' 
+    });
+    
+    // 하이라이트 효과 추가
+    setTimeout(() => {
+      targetCard.classList.add('search-highlight');
+    }, 500);
+    
+    // 2초 후 하이라이트 제거
+    setTimeout(() => {
+      targetCard.classList.remove('search-highlight');
+    }, 3000);
+  }
+}
+
+// 모달 관련 변수
+const modal = document.getElementById('pw-modal');
+const pwInput = document.getElementById('pw-input');
+const pwError = document.getElementById('pw-error');
+const pwCancel = document.getElementById('pw-cancel');
+const pwConfirm = document.getElementById('pw-confirm');
+let pendingURL = null;
+let pendingEquipmentName = null;
+let pendingEquipmentType = null;
+
+// 카드 클릭 이벤트 (인증 모달 추가)
+setTimeout(() => {
+  const equipmentIcons = document.querySelectorAll('.equipment-icon');
+  equipmentIcons.forEach(icon => {
+    icon.addEventListener('click', function() {
+      const spotCard = this.closest('.spot-card');
+      const spotTitle = spotCard.querySelector('h3').textContent;
+      const equipmentType = this.querySelector('h4').textContent;
+      const equipmentIP = this.querySelector('p').textContent;
+      const equipmentURL = this.getAttribute('data-url');
+      const equipmentName = this.getAttribute('data-equipment');
+      const equipmentTypeKey = this.getAttribute('data-type');
+      
+      // 접속할 URL 및 장비 정보 저장
+      pendingURL = equipmentURL;
+      pendingEquipmentName = equipmentName;
+      pendingEquipmentType = equipmentTypeKey;
+      
+      // 모달에 장비 정보 표시
+      document.getElementById('modal-equipment-name').textContent = spotTitle;
+      document.getElementById('modal-equipment-type').textContent = equipmentType;
+      document.getElementById('modal-equipment-ip').textContent = equipmentIP;
+      
+      // URL에서 포트 정보 추출
+      const urlObj = new URL(equipmentURL);
+      const port = urlObj.port || (urlObj.protocol === 'https:' ? '443' : '80');
+      document.getElementById('modal-equipment-port').textContent = port;
+      
+      // 모달 오픈
+      modal.classList.remove('hidden');
+      pwInput.value = '';
+      pwError.classList.add('hidden');
+      pwInput.focus();
+      
+      // 클릭 애니메이션
+      this.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        this.style.transform = '';
+      }, 150);
+    });
+  });
+}, 100);
+
+// 모달 취소 버튼
+pwCancel.addEventListener('click', function() {
+  modal.classList.add('hidden');
+  pwInput.value = '';
+  pwError.classList.add('hidden');
+  pendingURL = null;
+  pendingEquipmentName = null;
+  pendingEquipmentType = null;
+});
+
+// 모달 확인 버튼
+pwConfirm.addEventListener('click', async function() {
+  const inputPW = pwInput.value;
+  if (inputPW === 'rpa2025') {
+    // 비밀번호 일치 - 원격 접속 및 장비 사용 상태 보고
+    modal.classList.add('hidden');
+    
+    // 장비 사용 시작 보고
+    if (pendingEquipmentName && pendingEquipmentType) {
+      await reportEquipmentUse(pendingEquipmentName, pendingEquipmentType);
+    }
+    
+    // 새 창에서 원격 접속
+    const remoteWindow = window.open(pendingURL, '_blank', 'noopener,noreferrer');
+    
+    // 원격 창이 닫혔는지 주기적으로 확인
+    if (remoteWindow && pendingEquipmentName && pendingEquipmentType) {
+      const checkClosed = setInterval(() => {
+        if (remoteWindow.closed) {
+          clearInterval(checkClosed);
+          // 원격 창이 닫히면 장비 사용 종료 보고
+          reportEquipmentRelease(pendingEquipmentName, pendingEquipmentType);
+        }
+      }, 1000);
+    }
+    
+    console.log(`원격 접속 성공: ${pendingURL}`);
+    pendingURL = null;
+    pendingEquipmentName = null;
+    pendingEquipmentType = null;
+  } else {
+    // 비밀번호 불일치 - 에러 표시
+    pwError.classList.remove('hidden');
+    pwInput.value = '';
+    pwInput.focus();
+  }
+});
+
+// 엔터키로도 확인 가능
+pwInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    pwConfirm.click();
+  }
+});
+
+// 모달 배경 클릭 시 닫기
+modal.addEventListener('click', function(e) {
+  if (e.target === modal) {
+    pwCancel.click();
+  }
+});
+});
+</script>
+
+</body>
+</html>

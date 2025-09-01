@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <script src="/public/tailwind.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh; /* 브라우저 창의 전체 높이 사용 */
+            display: flex;
+            flex-direction: column;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 800px;
+            height: 80%;
+            max-height: 600px;
+            overflow: auto;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .loading {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border: 16px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 16px solid #3498db;
+            width: 120px;
+            height: 120px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-text {
+            position: fixed;
+            z-index: 101;
+            left: 50%;
+            top: 70%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: #3498db;
+        }
+        .fixed-progress {
+            position: fixed;
+            top: 20px;
+            left: 0px;
+            width: 100%;
+            height: 100px; /* 고정 높이 */
+            background-color: #fca432;
+            z-index: 10;
+            padding: 1rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 그림자 효과 */
+            border-bottom: 1px solid #ddd; /* 하단 테두리 */
+            display: flex;
+            align-items: center; /* 수직 중앙 정렬 */
+            justify-content: space-between; /* 요소 간 균등 분배 */
+            gap: 20px; /* 요소 간 간격 */
+        }
+        .fixed-progress .content {
+            display: flex;
+            align-items: center; /* 수직 정렬 */
+            justify-content: flex-start; /* 왼쪽 정렬 */
+            gap: 20px; /* 요소 간 간격 추가 */
+            height: 100%; /* 부모 높이에 맞춤 */
+        }
+        #image-container {
+            flex: 1; /* 가변 너비 */
+            width: 100px; /* 너비를 1000px로 고정 */
+            height: 100%; /* 부모 높이에 맞춤 */
+            padding: 10px;
+            border: 1px solid #ddd; /* 테두리 */
+            border-radius: 10px; /* 둥근 모서리 */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 그림자 효과 */
+            background-color: #fff;
+            display: flex;
+            align-items: center; /* 수직 중앙 정렬 */
+            justify-content: center; /* 수평 중앙 정렬 */
+        }
+        #image-container img {
+            min-width:100% ; /* 이미지 너비를 컨테이너에 맞춤 */
+            max-height: 100%; /* 이미지 높이를 컨테이너에 맞춤 */
+        }
+        #image-container:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 마우스 오버 시 그림자 강화 */
+            transform: translateY(-2px); /* 마우스 오버 시 위로 이동 */
+        }
+        
+        .container table {
+            table-layout: fixed; /* 테이블의 레이아웃을 고정 */
+            width: 100%; /* 테이블의 너비를 100%로 설정 */
+        }
+
+        #text-data-container {
+            width: 2500px; /* 너비를 1000px로 고정 */
+            padding: 10px;
+            border: 1px solid #ddd; /* 테두리 추가 */
+            border-radius: 10px; /* 둥근 모서리 */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 그림자 효과 */
+            height: 100%; /* 부모 높이에 맞춤 */
+            display: flex;
+            align-items: center; /* 수직 중앙 정렬 */
+            justify-content: center; /* 수평 중앙 정렬 */
+            font-size: 1.0rem; /* 폰트 사이즈 키우기 */
+            font-weight: bold; /* 폰트 굵게 */
+        }
+        
+        #text-data-container:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 마우스 오버 시 그림자 효과 강화 */
+            transform: translateY(-2px); /* 마우스 오버 시 위로 이동 */
+            background-color: #f9f9f9; /* 마우스 오버 시 배경색 변경 */
+        }
+
+        #excel-data-container {
+            width: 100%; /* 컨테이너 너비를 100%로 설정 */
+            overflow-x: auto; /* 가로 스크롤 활성화 */
+            border: 1px solid #ddd; /* 테두리 추가 */
+            padding: 10px; /* 내부 여백 추가 */
+            box-sizing: border-box; /* 패딩 포함한 박스 크기 계산 */
+        }
+        
+        #excel-data-container {
+            width: 100%; /* 컨테이너 너비를 100%로 설정 */
+            height: 100%;
+           /* overflow-x: auto; /* 가로 스크롤 활성화 */
+            border: 1px solid #ddd; /* 테두리 추가 */
+            padding: 10px; /* 내부 여백 추가 */
+            box-sizing: border-box; /* 패딩 포함한 박스 크기 계산 */
+        }
+        
+        #excel-data-container table th,
+        #excel-data-container table td {
+            border: 1px solid #ddd; /* 셀 경계선 추가 */
+            padding: 8px; /* 셀 내부 여백 추가 */
+            text-align: left; /* 텍스트 정렬 */
+        }
+        
+        #excel-data-container table th {
+            background-color: #f4f4f4; /* 헤더 배경색 설정 */
+        }
+        #excel-data-container:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 마우스 오버 시 그림자 효과 */
+            transform: scale(1.01); /* 약간 확대 효과 */
+            transition: all 0.3s ease-in-out; /* 부드러운 애니메이션 */
+        }
+
+        #progress-label {
+            display: flex;
+            align-items: center;
+            height: 100%; /* 부모 높이에 맞춤 */
+        }
+        
+        button {
+            margin-left: auto; /* 버튼을 오른쪽 끝으로 정렬 */
+            height: 100%; /* 부모 높이에 맞춤 */
+            display: flex;
+            align-items: center; /* 수직 중앙 정렬 */
+            justify-content: center; /* 수평 중앙 정렬 */
+        }
+
+        
+    </style>
+
+</head>
+
+<body class="bg-gray-100 p-8">
+    <div class="fixed-progress">
+        <div class="content">
+            <div id="image-container" class="image-container"></div>
+            </div>
+            <div id="text-data-container" class="ml-4"></div>
+            <div id="progress-label" class="ml-4"> <span id="progress-text">0/0</span></div>
+            <!-- 추가된 PASS/FAIL 카운터 -->
+            <div id="pass-fail-counter" class="ml-4">
+                <span id="pass-count" style="font-size: 0.875rem;">PASS:0</span> <span id="fail-count" style="font-size: 0.875rem;">FAIL:0</span>
+            </div>
+            <div class="flex items-center w-full ml-4">
+                <div class="w-full bg-gray-200 rounded-full h-2.5 flex items-center">
+                    <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%;"></div>
+                </div>
+            </div>
+            <button id="finalize-btn" class="bg-blue-500 text-white px-3 py-2 rounded disabled:opacity-50 ml-4" disabled>최종확인</button>
+        </div>
+    </div>
+
+    <div class="container max-w-full mx-auto bg-white shadow-lg rounded-lg p-6 flex-1 overflow-y-auto mt-20">
+        <div class="grid grid-cols-10 gap-4 mb-6">
+            <div class="col-span-7">
+                <h2 class="font-semibold mb-2">Inspection Data</h2>
+                <div id="excel-data-container"></div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        function fetchExcelData(retryCount = 0) {
+                            fetch('/viewExcelSheet')
+                                .then(response => {
+                                    if (!response.ok) {
+                                        throw new Error('Network response was not ok');
+                                    }
+                                    return response.text();
+                                })
+                                .then(data => {
+                                    document.getElementById('excel-data-container').innerHTML = data;
+    
+                                    // 이미지 컨테이너에 더블클릭 이벤트 추가
+                                    document.querySelectorAll('.image-container').forEach(container => {
+                                        container.addEventListener('dblclick', function() {
+                                            const imageUrl = container.getAttribute('data-image');
+                                            const modal = document.getElementById('imageModal');
+                                            const modalImg = document.getElementById('modalImage');
+                                            modalImg.src = imageUrl;
+                                            modal.style.display = 'flex';
+                                        });
+                                    });
+                                })
+                                .catch(error => {
+                                    console.error('Error fetching Excel data:', error);
+                                    if (retryCount < 5) { // 최대 5번 재시도
+                                        setTimeout(() => fetchExcelData(retryCount + 1), 2000); // 2초 후 재시도
+                                    } else {
+                                        alert('Excel 데이터를 가져오는 데 실패했습니다. 네트워크 상태를 확인하거나 관리자에게 문의하세요.');
+                                    }
+                                });
+                        }
+    
+                        fetchExcelData();
+    
+                        function fetchGenerateImage(retryCount = 0) {
+                            fetch('/generate-image')
+                                .then(response => {
+                                    if (!response.ok) {
+                                        throw new Error('Network response was not ok');
+                                    }
+                                    return response.json();
+                                })
+                                .then(data => {
+                                    const imageData = data.imageData;
+                                    const textData = data.textData; // textData 가져오기
+                                    const imageContainer = document.getElementById('image-container');
+                                    const textDataContainer = document.getElementById('text-data-container'); // textData를 추가할 div
+    
+                                    // 기존 내용 초기화
+                                    imageContainer.innerHTML = '';
+                                    textDataContainer.innerHTML = '';
+    
+                                    // 텍스트 데이터 추가
+                                    textDataContainer.innerHTML = textData.join('<br>');
+    
+                                    // 이미지 데이터 추가
+                                    imageData.forEach(base64Image => {
+                                        const img = document.createElement('img');
+                                        img.src = base64Image;
+                                        img.style.height = '200px'; // 높이를 200px로 고정
+                                        img.style.width = 'auto'; // 너비는 자동 조절
+                                        img.onerror = function () {
+                                            this.alt = '이미지를 불러올 수 없습니다.';
+                                        };
+                                        imageContainer.appendChild(img);
+                                    });
+                                })
+                                .catch(error => {
+                                    console.error('Error fetching image:', error);
+                                    if (retryCount < 5) { // 최대 5번 재시도
+                                        setTimeout(() => fetchGenerateImage(retryCount + 1), 2000); // 2초 후 재시도
+                                    } else {
+                                        alert('이미지를 가져오는 데 실패했습니다. 네트워크 상태를 확인하거나 관리자에게 문의하세요.');
+                                    }
+                                });
+                        }
+    
+                        fetchGenerateImage();
+
+                        // 커서 스타일을 동적으로 설정하는 함수
+                        async function setCursorStyle() {
+                            try {
+                                const response = await fetch('/setCursorStyle');
+                                if (response.ok) {
+                                    const cursorStyle = await response.text();
+                                    const styleElement = document.createElement('style');
+                                    styleElement.innerHTML = cursorStyle;
+                                    document.head.appendChild(styleElement);
+                                } else {
+                                    console.error('Failed to fetch cursor style');
+                                }
+                            } catch (error) {
+                                console.error('Error fetching cursor style:', error);
+                            }
+                        }
+
+                        // 커서 스타일 설정 함수 호출
+                        setCursorStyle();
+                    });
+                </script>
+            </div>
+    
+        
+            <div class="col-span-3">
+                <h2 class="font-semibold mb-4 text-xl">Checklist</h2>
+                <table class="w-full text-lg">
+                    <tr class="border-b">
+                        <td class="py-2 flex items-center justify-between">
+                            <span class="font-bold">1. 제품 실물 확인(Device / Lot ID / Slot)</span>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="check1-pass" class="pass mr-2" style="width: 24px; height: 24px;" onclick="toggleCheckbox('check1-pass', 'check1-fail')">
+                                <label for="check1-pass" class="font-bold mr-4">PASS</label>
+                                <input type="checkbox" id="check1-fail" class="fail mr-2" style="width: 24px; height: 24px;" onclick="toggleCheckbox('check1-fail', 'check1-pass'); this.style.accentColor = this.checked ? '#E24A4A' : '';">
+                                <label for="check1-fail" class="font-bold">FAIL</label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="border-b">
+                        <td class="py-2 flex items-center justify-between">
+                            <span class="font-bold">2. PPID 확인</span>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="check2-pass" class="pass mr-2" style="width: 24px; height: 24px;" onclick="toggleCheckbox('check2-pass', 'check2-fail')">
+                                <label for="check2-pass" class="font-bold mr-4">PASS</label>
+                                <input type="checkbox" id="check2-fail" class="fail mr-2" style="width: 24px; height: 24px;" onclick="toggleCheckbox('check2-fail', 'check2-pass'); this.style.accentColor = this.checked ? '#E24A4A' : '';">
+                                <label for="check2-fail" class="font-bold">FAIL</label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="border-b">
+                        <td class="py-2 flex items-center justify-between">
+                            <span class="font-bold">3. Probe Card 확인 (이물, Dut 모양)</span>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="check3-pass" class="pass mr-2" style="width: 24px; height: 24px;" onclick="toggleCheckbox('check3-pass', 'check3-fail')">
+                                <label for="check3-pass" class="font-bold mr-4">PASS</label>
+                                <input type="checkbox" id="check3-fail" class="fail mr-2" style="width: 24px; height: 24px;" onclick="toggleCheckbox('check3-fail', 'check3-pass'); this.style.accentColor = this.checked ? '#E24A4A' : '';">
+                                <label for="check3-fail" class="font-bold">FAIL</label>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="border-b">
+                        <td class="py-2 flex items-center justify-between">
+                            <span class="font-bold">4. 5Point Setup 평탄도 확인</span>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="check4-pass" class="pass mr-2" style="width: 24px; height: 24px;" onclick="toggleCheckbox('check4-pass', 'check4-fail')">
+                                <label for="check4-pass" class="font-bold mr-4">PASS</label>
+                                <input type="checkbox" id="check4-fail" class="fail mr-2" style="width: 24px; height: 24px;" onclick="toggleCheckbox('check4-fail', 'check4-pass'); this.style.accentColor = this.checked ? '#E24A4A' : '';">
+                                <label for="check4-fail" class="font-bold">FAIL</label>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <script>
+                function toggleCheckbox(checkedId, uncheckedId) {
+                    const checkedBox = document.getElementById(checkedId);
+                    const uncheckedBox = document.getElementById(uncheckedId);
+                    if (checkedBox.checked) {
+                        uncheckedBox.checked = false;
+                    }
+                }
+            </script>
+        </div>
+
+        <div class="flex w-full mb-4">
+            <div id="image-container" class="w-2/3 p-2"></div>
+            <div id="text-data-container" class="w-1/3 p-2"></div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
+            <h2 class="font-semibold mb-2">Inspection Images</h2>
+            <div class="overflow-y-auto h-full bg-gray-200 p-4 rounded" id="inspection-images-container">
+                <div class="flex w-full mb-4">
+                    <div id="image-container" class="w-1/2 p-2"></div>
+                    <div id="text-data-container" class="w-1/2 p-2"></div>
+                </div>
+                <!-- 이미지와 체크박스가 동적으로 추가될 영역 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeImageModal">&times;</span>
+            <img id="modalImage" src="" alt="Embedded Image" style="max-width: 100%; height: auto;">
+        </div>
+    </div>
+
+    <!-- 최종 완료 모달 -->
+    <div id="finishModal" class="modal">
+        <div class="modal-content" style="max-width: 400px; max-height: 300px; text-align: center; position: relative;">
+            <span class="close" id="closeFinishModal" style="position: absolute; top: 10px; right: 10px; cursor: pointer;">&times;</span>
+            <p style="margin-top: 20px; font-size: 18px; font-weight: bold;">사번을 입력해주세요.</p>
+            <input type="text" id="employeeId" placeholder="사번 입력" style="margin-top: 20px; padding: 10px; width: 80%; font-size: 16px;">
+            <div class="flex justify-center mt-8 space-x-4">
+                <button id="confirmFinishBtn" class="bg-blue-500 text-white px-6 py-2 rounded">확인</button>
+                <button id="cancelFinishBtn" class="bg-gray-500 text-white px-6 py-2 rounded">취소</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Loading Animation -->
+    <div id="loading" class="loading"></div>
+    <div id="loading-text" class="loading-text" style="text-align: center; color: black; font-weight: bold; top: 70%;">이미지 추출 중...</div>
+
+    <script type="module">
+        let receivedData = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateProgress);
+            });
+    
+            // 모달 닫기 버튼 이벤트 리스너
+            document.getElementById('closeImageModal').addEventListener('click', () => {
+                document.getElementById('imageModal').style.display = 'none';
+            });
+    
+            // finalize-btn 클릭 이벤트 리스너
+            document.getElementById('finalize-btn').addEventListener('click', () => {
+                document.getElementById('finishModal').style.display = 'flex';
+            });
+    
+            // finishModal 닫기 버튼 이벤트 리스너
+            document.getElementById('closeFinishModal').addEventListener('click', () => {
+                document.getElementById('finishModal').style.display = 'none';
+            });
+    
+            // 취소 버튼 클릭 이벤트 리스너
+            document.getElementById('cancelFinishBtn').addEventListener('click', () => {
+                document.getElementById('finishModal').style.display = 'none';
+            });
+    
+            // 확인 버튼 클릭 이벤트 리스너
+            document.getElementById('confirmFinishBtn').addEventListener('click', async () => {
+            const employeeId = document.getElementById('employeeId').value;
+            const idPattern = /^\d{8}$/; // 8자리 숫자 패턴
+            if (idPattern.test(employeeId)) {
+                const finallyValue = document.getElementById('finalize-btn').dataset.finallyValue; // 'Ok' 또는 'No'
+                try {
+                    const response = await fetch('/updateFinallyColumn', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            eqpid: receivedData.eqpid,
+                            startTime: receivedData.date,
+                            userId: employeeId,
+                            finallyValue: finallyValue // 추가된 부분
+                        })
+                    });
+
+                    if (response.ok) {
+                        alert('RPA가 최종 완료되었습니다.');
+                        window.parent.postMessage({ action: 'closeFinishModal', eqpid: receivedData.eqpid }, '*');
+                    } else {
+                        alert('RPA 최종 완료 실패!!');
+                    }
+                } catch (error) {
+                    console.error('Error updating FINALLY column:', error);
+                }
+            } else {
+                alert('사번은 8자리 숫자여야 합니다. 다시 입력해주세요.');
+            }
+        });
+            // document.getElementById('confirmFinishBtn').addEventListener('click', async () => {
+            //     console.log('confirmFinishBtn clicked'); // 콘솔 로그 추가
+            //     const employeeId = document.getElementById('employeeId').value;
+            //     const idPattern = /^\d{8}$/; // 8자리 숫자 패턴
+            //     if (idPattern.test(employeeId)) {
+            //         // 최종 완료 로직 추가
+            //         alert(`최종 완료되었습니다.`);
+            //         try {
+            //             console.log('Sending request to updateFinallyColumn'); // 콘솔 로그 추가
+            //             console.log('Received data:', receivedData); // receivedData 로그 추가
+            //             const response = await fetch('/updateFinallyColumn', {
+            //                 method: 'POST',
+            //                 headers: {
+            //                     'Content-Type': 'application/json'
+            //                 },
+            //                 body: JSON.stringify({ eqpid: receivedData.eqpid, startTime: receivedData.date, userId: employeeId })
+            //             });
+    
+            //             if (response.ok) {
+            //                 alert('RPA가 최종 완료되었습니다.');
+            //                 // finishModal 닫기 및 MonitoringGrid 항목 숨기기
+            //                 window.parent.postMessage({ action: 'closeFinishModal', eqpid: receivedData.eqpid }, '*');
+            //             } else {
+            //                 alert('RPA 최종 완료 실패!!');
+            //             }
+            //         } catch (error) {
+            //             console.error('Error updating FINALLY column:', error);
+            //         }
+            //     } else {
+            //         alert('사번은 8자리 숫자여야 합니다. 다시 입력해주세요.');
+            //     }
+            // });
+            
+            
+            function updateProgress() {
+                const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+                const checkedCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+                const total = checkboxes.length / 2;
+                const progressBar = document.getElementById('progress-bar');
+                const progressText = document.getElementById('progress-text');
+                const finalizeBtn = document.getElementById('finalize-btn');
+            
+                const progress = (checkedCount / total) * 100;
+                progressBar.style.width = progress + '%';
+                progressText.textContent = `${checkedCount}/${total}`;
+            
+                // PASS/FAIL 카운터 업데이트
+                const passCount = Array.from(checkboxes).filter(checkbox => checkbox.classList.contains('pass') && checkbox.checked).length;
+                const failCount = Array.from(checkboxes).filter(checkbox => checkbox.classList.contains('fail') && checkbox.checked).length;
+                document.getElementById('pass-count').textContent = `PASS: ${passCount}`;
+                document.getElementById('fail-count').textContent = `FAIL: ${failCount}`;
+            
+                // progress bar 색상 변경
+                const failCheckboxes = Array.from(checkboxes).filter(checkbox => checkbox.classList.contains('fail') && checkbox.checked);
+                if (failCheckboxes.length > 0) {
+                    progressBar.style.backgroundColor = '#E24A4A'; // 빨간색
+                } else {
+                    progressBar.style.backgroundColor = '#4A90E2'; // 파란색
+                }
+            
+                if(checkedCount === total) {
+                    finalizeBtn.disabled = false;
+                    if (failCount > 0) {
+                        finalizeBtn.style.backgroundColor = 'red';
+                        finalizeBtn.dataset.finallyValue = 'No';
+                    } else {
+                        finalizeBtn.style.backgroundColor = 'blue';
+                        finalizeBtn.dataset.finallyValue = 'Ok';
+                    }
+                } else {
+                    finalizeBtn.disabled = true;
+                    finalizeBtn.style.backgroundColor = 'gray';
+                }
+            
+                finalizeBtn.disabled = checkedCount !== total;
+            
+                // "check1"부터 "check4"까지의 체크박스가 모두 체크되면 "check5"가 중앙에 위치하도록 스크롤
+                if ((document.getElementById('check1-pass').checked || document.getElementById('check1-fail').checked) &&
+                    (document.getElementById('check2-pass').checked || document.getElementById('check2-fail').checked) &&
+                    (document.getElementById('check3-pass').checked || document.getElementById('check3-fail').checked) &&
+                    (document.getElementById('check4-pass').checked || document.getElementById('check4-fail').checked)) {
+                    const check5 = document.getElementById('check5-pass');
+                    if (check5) {
+                        check5.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            }
+            
+            
+            // 이미지와 체크박스를 동적으로 추가
+            fetchImages();
+    
+            function fetchImages() {
+                showLoadingAnimation();
+                fetch('/fetchImages')
+                    .then(response => response.json())
+                    .then(images => {
+                        hideLoadingAnimation();
+                        const container = document.getElementById('inspection-images-container');
+                        container.innerHTML = ''; // 기존 내용 초기화
+    
+                        images.forEach((image, index) => {
+                            const div = document.createElement('div');
+                            div.className = 'grid grid-cols-10 gap-4 mb-4'; // 9:1 비율 설정
+    
+                            const titleImgDiv = document.createElement('div');
+                            titleImgDiv.className = 'col-span-9';
+    
+                            const title = document.createElement('div');
+                            title.textContent = image.name;
+                            title.className = 'bg-blue-200 text-center py-2 font-bold w-full';
+    
+                            const img = document.createElement('img');
+                            img.src = image.path;
+                            img.alt = `Inspection Image ${index + 1}`;
+                            img.className = 'w-full h-auto';
+                            img.onerror = function() {
+                                this.src = '/path/to/placeholder.png'; // 대체 이미지 경로 설정
+                                this.alt = '이미지를 불러올 수 없습니다.';
+                            };
+    
+                            titleImgDiv.appendChild(title);
+                            titleImgDiv.appendChild(img);
+    
+                            const checkboxDiv = document.createElement('div');
+                            checkboxDiv.className = 'flex flex-col items-center justify-center';
+                            checkboxDiv.style.fontSize = '1.2rem'; // 폰트 사이즈 키우기
+                            checkboxDiv.style.backgroundColor = '#fca432'; // 백그라운드 색상 설정
+                            checkboxDiv.style.border = '1px solid #ccc'; // 테두리 추가
+                            checkboxDiv.style.borderRadius = '10px'; // 둥근 모서리
+                            checkboxDiv.style.padding = '10px'; // 패딩 추가
+                            checkboxDiv.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)'; // 그림자 효과
+    
+                            // 'PASS' 체크박스 추가
+                            const passCheckbox = document.createElement('input');
+                            passCheckbox.type = 'checkbox';
+                            passCheckbox.id = `check${index + 5}-pass`; // Check5부터 시작
+                            passCheckbox.className = 'pass mb-2';
+                            passCheckbox.style.width = '40px'; // 체크박스 크기 키우기
+                            passCheckbox.style.height = '40px'; // 체크박스 크기 키우기
+                            passCheckbox.style.accentColor = '#4A90E2'; // 체크박스 색상 변경
+                            passCheckbox.onclick = function() {
+                                if (passCheckbox.checked) {
+                                    failCheckbox.checked = false;
+                                }
+                                updateProgress();
+                                if (passCheckbox.checked) {
+                                    // 스크롤 매크로 기능 추가
+                                    setTimeout(() => {
+                                        const nextCheckbox = document.getElementById(`check${index + 6}-pass`);
+                                        if (nextCheckbox) {
+                                            nextCheckbox.scrollIntoView({
+                                                behavior: 'smooth',
+                                                block: 'center'
+                                            });
+                                        }
+                                    }, 0); // 0초 후에 스크롤(즉시)
+                                }
+                            };
+
+                            // 'FAIL' 체크박스 추가
+                            const failCheckbox = document.createElement('input');
+                            failCheckbox.type = 'checkbox';
+                            failCheckbox.id = `check${index + 5}-fail`; // Check5부터 시작
+                            failCheckbox.className = 'fail mb-2';
+                            failCheckbox.style.width = '40px'; // 체크박스 크기 키우기
+                            failCheckbox.style.height = '40px'; // 체크박스 크기 키우기
+                            failCheckbox.style.accentColor = '#E24A4A'; // 체크박스 색상 변경
+                            failCheckbox.onclick = function() {
+                                if (failCheckbox.checked) {
+                                    passCheckbox.checked = false;
+                                }
+                                updateProgress();
+                                if (failCheckbox.checked) {
+                                    // 스크롤 매크로 기능 추가
+                                    setTimeout(() => {
+                                        const nextCheckbox = document.getElementById(`check${index + 6}-pass`);
+                                        if (nextCheckbox) {
+                                            nextCheckbox.scrollIntoView({
+                                                behavior: 'smooth',
+                                                block: 'center'
+                                            });
+                                        }
+                                    }, 0); // 0초 후에 스크롤(즉시)
+                                }
+                            };
+    
+                            const labelPass = document.createElement('label');
+                            labelPass.htmlFor = `check${index + 5}-pass`;
+                            labelPass.textContent = `PASS`;
+                            labelPass.style.color = '#fff'; // 라벨 텍스트 색상 변경
+                            labelPass.style.fontWeight = 'bold'; // 라벨 텍스트 굵게
+    
+                            const labelFail = document.createElement('label');
+                            labelFail.htmlFor = `check${index + 5}-fail`;
+                            labelFail.textContent = `FAIL`;
+                            labelFail.style.color = '#fff'; // 라벨 텍스트 색상 변경
+                            labelFail.style.fontWeight = 'bold'; // 라벨 텍스트 굵게
+    
+                            checkboxDiv.appendChild(passCheckbox);
+                            checkboxDiv.appendChild(labelPass);
+                            checkboxDiv.appendChild(failCheckbox);
+                            checkboxDiv.appendChild(labelFail);
+    
+                            div.appendChild(titleImgDiv);
+                            div.appendChild(checkboxDiv);
+    
+                            container.appendChild(div);
+                        });
+                    })
+                    .catch(error => {
+                        hideLoadingAnimation();
+                        console.error('Error fetching images:', error);
+                    });
+            }
+    
+            function showLoadingAnimation() {
+                const loadingElement = document.getElementById('loading');
+                const loadingTextElement = document.getElementById('loading-text');
+                loadingElement.style.display = 'block';
+                loadingTextElement.style.display = 'block';
+            }
+    
+            function hideLoadingAnimation() {
+                const loadingElement = document.getElementById('loading');
+                const loadingTextElement = document.getElementById('loading-text');
+                loadingElement.style.display = 'none';
+                loadingTextElement.style.display = 'none';
+            }
+    
+            // globalItem 변수를 사용하여 필요한 작업 수행
+            if (globalItem) {
+                console.log(globalItem);
+                // globalItem을 사용하여 필요한 작업 수행
+            } else {
+                console.error('globalItem 변수를 찾을 수 없습니다.');
+            }
+        });
+    
+        // 모달 열기 함수
+        function openFinishModal() {
+            document.getElementById('finishModal').style.display = 'flex';
+        }
+    
+        window.addEventListener('message', function(event) {
+            const data = event.data;
+            if (data.eqpid && data.date) {
+                console.log('Received data:', data);
+                receivedData = data; // 전달받은 데이터를 전역 변수에 저장
+            }
+        });
+    
+        fetch('/generate-image')
+            .then(response => response.json())
+            .then(data => {
+                const imageData = data.imageData;
+                const imageContainer = document.getElementById('image-container');
+    
+                imageData.forEach(base64Image => {
+                    const img = document.createElement('img');
+                    img.src = base64Image;
+                    img.style.height = '200px'; // 높이를 200px로 고정
+                    img.style.width = '2000px'; // 너비는 자동 조절
+                    img.onerror = function() {
+                        //this.src = 'https://source.unsplash.com/300x300/?pattern'; // 기본 이미지
+                        //this.alt = '이미지를 불러올 수 없습니다.';
+                    };
+                    imageContainer.appendChild(img);
+                });
+            })
+            .catch(error => console.error('Error fetching image:', error));
+        
+    </script>
+
+    </body>
+</html>

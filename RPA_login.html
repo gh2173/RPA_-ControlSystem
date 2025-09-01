@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARK RPA Monitoring System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background-image: url('/getImage2');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .content-wrapper {
+            position: relative;
+            z-index: 10;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            max-width: 900px;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .left-side {
+            width: 50%;
+            padding: 2rem;
+            background: linear-gradient(to right, #2343ac, #ff9f1c);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            color: white;
+        }
+
+        .right-side {
+            width: 50%;
+            padding: 2rem;
+            background: #f8fafc;
+        }
+
+        .logo {
+            width: 300px;
+            height: auto;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            font-size: 1rem;
+            font-weight: bold;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #4a4a4a;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: black;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #333;
+        }
+
+        .info {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="overlay"></div>
+    <div class="content-wrapper">
+        <div class="login-container">
+            <div class="left-side">
+                <img src="/getImage" alt="nepesark_2-removebg-preview.png" class="logo" style="width: 400px; height: auto; margin-bottom: -4rem; margin-top: -5rem;">
+                <h1>RPA 모니터링 관제시스템</h1>
+                <p>nepes Ark RPA 통합 관리 시스템</p>
+            </div>
+            <div class="right-side">
+                <div style="display: flex; align-items: center; margin-bottom: 2rem;">
+                    <div style="width: 2rem; height: 2rem; background-color: #facc15; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem;">
+                        <span style="color: white; font-weight: bold;">?</span>
+                    </div>
+                    <h2 style="font-size: 1.5rem; font-weight: bold;">nRMS</h2>
+                </div>
+                <form id="loginForm">
+                    <label>ID</label>
+                    <input type="text" id="userId" placeholder="User Id">
+                    <label>Password</label>
+                    <input type="password" id="userPassword" placeholder="Password">
+                    <label>근무지선택</label>
+                    <select id="workLocation">
+                        <option value="" disabled selected>근무지를 선택해주세요.</option>
+                        <option value="ns2CAM">ns2CAM</option>
+                        <option value="ns3CAM">ns3CAM</option>
+                    </select>
+                    <button type="submit">Log in</button>
+                </form>
+                <p class="info">nepes Ark 의 지정된 사용자 외 접속을 금지합니다. 보안에 주의해 주시기 바랍니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const userId = document.getElementById('userId').value;
+        const password = document.getElementById('userPassword').value;
+        const workLocation = document.getElementById('workLocation').value;
+        
+        // 캠퍼스 선택 확인
+        if (!workLocation) {
+            alert('근무지를 선택해주세요.');
+            return;
+        }
+
+        fetch(`/login?userId=${encodeURIComponent(userId)}&password=${encodeURIComponent(password)}&campus=${encodeURIComponent(workLocation)}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = `/Ark_RPA_Control_system?userId=${encodeURIComponent(userId)}`;
+            } else {
+                alert('로그인 실패: ' + data.message);
+            }
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            alert('로그인 처리 중 오류가 발생했습니다.');
+        });
+    });
+    </script>
+</body>
+</html>
