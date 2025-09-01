@@ -1,0 +1,11 @@
+# node_modules 폴더 무시
+node_modules/
+
+# backup 폴더 무시
+backup/
+
+# 로그 파일 무시
+*.log
+
+# 맥에서 자동 생기는 파일 무시
+.DS_Store
