@@ -752,6 +752,7 @@
                 <img src="/getImage" alt="nRMS" class="h-30" id="refreshImage">
             </div>
             <button id="toggleMenu" class="w-full bg-yellow-600 py-2 rounded">🔐 메뉴숨기기</button>
+            <button id="mainBtn" class=" w-full bg-blue-600 py-2 rounded">메인 화면</button>
             <button id="monitoringBtn" class="w-full bg-blue-600 py-2 rounded">🖥 장비 모니터링</button>
             <!-- <button id="reportConfirmBtn" class="w-full bg-red-600 py-2 rounded">Report 최종확인</button> -->
             <!-- 파일 선택 부분 제거 -->
@@ -959,16 +960,100 @@
 
             document.addEventListener('DOMContentLoaded', function() {
                 // F5 새로고침 시 장비 모니터링이 기본으로 선택되도록 설정 (monitoringBtn 클릭과 동일한 동작)
+                showMonitoringGrid();
                 
                 // 장비 모니터링 버튼을 활성 상태로 표시
-                const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
+                const allButtons = document.querySelectorAll('#mainBtn, #monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
                 allButtons.forEach(btn => btn.classList.remove('bg-green-600', 'bg-yellow-600'));
                 allButtons.forEach(btn => btn.classList.add('bg-blue-600'));
                 document.getElementById('monitoringBtn').classList.remove('bg-blue-600');
                 document.getElementById('monitoringBtn').classList.add('bg-green-600');
                 
-                // 완전한 모니터링 화면 초기화 (showMonitoringGrid 함수 사용)
-                showMonitoringGrid();
+                fetch('/getMonitoringData')
+                    .then(response => response.json())
+                    .then(data => {
+                        const monitoringGrid = document.getElementById('monitoringGrid');
+                        monitoringGrid.innerHTML = ''; // 기존 내용을 지웁니다.
+                        data.forEach(item => {
+                            const card = document.createElement('div');
+                            card.className = 'card bg-blue-100 p-4 rounded shadow';
+                            card.setAttribute('data-eqpid', item.EQPID); // data-eqpid 속성 추가
+                            card.innerHTML = `
+                                <div class="flex justify-between items-center">
+                                    <h2 class="text-2xl font-bold text-blue-800">${item.EQPID}</h2>
+                                    <span class="text-sm bg-blue-500 text-white px-3 py-1 rounded-full">${item.ROWNUM}</span> 
+                                </div>
+                                <span class="text-sm bg-gray-500 text-white px-2 py-1 rounded-full">${item.STATUS}</span>
+                                <table class="w-full text-sm text-gray-800 mt-2 border-collapse border border-white">
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">DEVICE:</td>
+                                        <td class="font-bold border border-white p-1">${item.DEVICE}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">LOT-ID:</td>
+                                        <td class="font-bold border border-white p-1">${item.LOT_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">STEP-ID:</td>
+                                        <td class="font-bold border border-white p-1">${item.STEP_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">PC-ID:</td>
+                                        <td class="font-bold border border-white p-1">${item.PC_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">PB-ID:</td>
+                                        <td class="font-bold border border-white p-1">${item.PB_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">USER-ID:</td>
+                                        <td class="font-bold border border-white p-1">${item.USER_ID}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="font-semibold border border-white p-1">STATUS:</td>
+                                        <td class="font-bold border border-white p-1">${item.RPA_STATUS}</td>
+                                    </tr>
+                                </table>
+                                        <div class="mt-4">
+                                            <div class="bg-blue-600 text-white py-2 px-4 rounded-t-lg text-center font-semibold">
+                                                RPA 진행률
+                                            </div>
+                                            <div class="progress-bg p-3 rounded-b-lg">
+                                                <p class="text-sm font-bold text-blue-700 text-center">진행률: ${item.PROGRESS}%</p>
+                                                <p class="text-sm font-bold text-blue-700 text-center">(${item.PG_DETAIL})</p>
+                                                <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                                    <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style="width: ${item.PROGRESS}%"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                `;
+                            // 상태에 따른 색상 설정
+                            let headerColor, bgColor, cardColor, progressBarColor, badgeColor;
+                            if (item.RPA_STATUS === 'Wait') {
+                            headerColor = 'bg-gray-600';
+                            bgColor = 'bg-gray-200';
+                            cardColor = 'bg-gray-100';
+                            badgeColor = 'bg-gray-500';
+                            progressBarColor = 'bg-gray-600';
+                            } else if (item.RPA_STATUS === 'Error') {
+                            headerColor = 'bg-red-600';
+                            bgColor = 'bg-red-200';
+                            cardColor = 'bg-red-100';
+                            badgeColor = 'bg-red-500';
+                            progressBarColor = 'bg-red-600';
+                            } else {
+                            headerColor = 'bg-green-600';
+                            bgColor = 'bg-green-200';
+                            cardColor = 'bg-green-100';
+                            badgeColor = 'bg-green-500';
+                            progressBarColor = 'bg-green-600';
+                            }
+                            monitoringGrid.appendChild(card);
+                        });
+                    })
+                    .catch(error => console.error('Error fetching monitoring data:', error));
             });
         </script>
          
@@ -1395,11 +1480,18 @@
             updateData();
         }
         
+        // 메인 버튼 기능 제거
+        document.getElementById('mainBtn').style.display = 'none';
+        
+        // 메인 버튼 기능
+        //document.getElementById('mainBtn').addEventListener('click', function() {
+        //    showMonitoringTable();
+        //});
         
         // 모니터링 버튼 기능 수정
         document.getElementById('monitoringBtn').addEventListener('click', function() {
             // 모든 버튼을 기본 상태로 되돌리기
-            const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
+            const allButtons = document.querySelectorAll('#mainBtn, #monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
             allButtons.forEach(btn => btn.classList.remove('bg-green-600', 'bg-yellow-600'));
             allButtons.forEach(btn => btn.classList.add('bg-blue-600'));
             
@@ -2467,7 +2559,7 @@
         // Loading Position 버튼 이벤트 리스너
         document.getElementById('loadingPositionBtn').addEventListener('click', function() {
             // 모든 버튼을 기본 상태로 되돌리기
-            const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
+            const allButtons = document.querySelectorAll('#mainBtn, #monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
             allButtons.forEach(btn => btn.classList.remove('bg-green-600', 'bg-yellow-600'));
             allButtons.forEach(btn => btn.classList.add('bg-blue-600'));
             
@@ -4061,7 +4153,7 @@
 <script>
     document.getElementById('showRPAInterfaceBtn').addEventListener('click', function() {
         // 모든 버튼을 기본 상태로 되돌리기
-        const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
+        const allButtons = document.querySelectorAll('#mainBtn, #monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
         allButtons.forEach(btn => btn.classList.remove('bg-green-600', 'bg-yellow-600'));
         allButtons.forEach(btn => btn.classList.add('bg-blue-600'));
         
