@@ -2052,7 +2052,12 @@ async function updateExcelConfirmStatus(equipmentId) {
         console.log(`엑셀 파일에서 ${equipmentId} 확인상태 업데이트 시작...`);
         
         // FTP 연결
-        await client.access(ftpConfig);
+        await client.access({
+            host: "192.168.223.23",
+            user: "hyperauto",
+            password: "Gkdlvj123!@#",
+            secure: false
+        });
         const files = await client.list('/upload');
         
         // 가장 최신 Autobe 엑셀 파일 찾기
