@@ -2058,7 +2058,17 @@ async function updateExcelConfirmStatus(equipmentId) {
             password: "Gkdlvj123!@#",
             secure: false
         });
-        const files = await client.list('/upload');
+        
+        // 백업 경로 설정 (오늘 날짜)
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        const backupPath = `RPA/Autobe_Backup/${year}/${month}/${day}/`;
+        
+        console.log(`백업 경로: ${backupPath}`);
+        const files = await client.list(backupPath);
+        console.log('FTP 서버 파일 목록:', files.map(f => f.name));
         
         // 가장 최신 Autobe 엑셀 파일 찾기
         const autobeFiles = files
@@ -2083,7 +2093,7 @@ async function updateExcelConfirmStatus(equipmentId) {
         
         // 엑셀 파일 다운로드
         console.log(`엑셀 파일 다운로드: ${latestFile.name}`);
-        await client.downloadTo(localPath, `/upload/${latestFile.name}`);
+        await client.downloadTo(localPath, `${backupPath}${latestFile.name}`);
         
         // 엑셀 파일 읽기 및 수정
         const workbook = new ExcelJS.Workbook();
@@ -2139,7 +2149,7 @@ async function updateExcelConfirmStatus(equipmentId) {
         
         // FTP로 업로드 (기존 파일 덮어쓰기)
         console.log(`수정된 엑셀 파일 업로드: ${latestFile.name}`);
-        await client.uploadFrom(localPath, `/upload/${latestFile.name}`);
+        await client.uploadFrom(localPath, `${backupPath}${latestFile.name}`);
         
         // 임시 파일 삭제
         fs.unlinkSync(localPath);
