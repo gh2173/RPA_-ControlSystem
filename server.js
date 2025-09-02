@@ -770,9 +770,9 @@ app.get('/analyzeAutobeBackup', async function (req, res) {
         let abnormalEquipments = [];
 
         data.forEach(row => {
-            // '확인' 컬럼이 'check'인 경우 제외
+            // '확인' 컬럼이 '확인'인 경우 제외
             const checkStatus = row['확인'] || '';
-            if (checkStatus === 'check') {
+            if (checkStatus === '확인') {
                 return; // 이미 확인된 항목은 건너뜀
             }
 
@@ -2016,6 +2016,138 @@ app.get('/getErrorDetails', async function (req, res) {
 app.get('/remote', function (req, res) {
     res.sendFile(path.join(__dirname, 'Remote.html'));
 });
+
+// 비정상진행 장비 확인처리 API
+app.post('/confirmAbnormalEquipment', async function (req, res) {
+    try {
+        const { equipmentId } = req.body;
+        console.log(`장비 확인처리 요청: ${equipmentId}`);
+        
+        if (!equipmentId) {
+            return res.status(400).json({ error: '장비 ID가 필요합니다.' });
+        }
+        
+        // FTP에서 가장 최신 엑셀 파일을 찾아서 수정
+        const result = await updateExcelConfirmStatus(equipmentId);
+        
+        if (result.success) {
+            console.log(`장비 ${equipmentId} 확인처리 완료`);
+            res.json({ success: true, message: '확인처리가 완료되었습니다.' });
+        } else {
+            console.error(`장비 ${equipmentId} 확인처리 실패:`, result.error);
+            res.status(500).json({ error: result.error });
+        }
+        
+    } catch (error) {
+        console.error('확인처리 API 에러:', error);
+        res.status(500).json({ error: '서버 내부 오류가 발생했습니다.' });
+    }
+});
+
+// 엑셀 파일에서 확인 상태 업데이트 함수
+async function updateExcelConfirmStatus(equipmentId) {
+    const client = new ftp.Client();
+    
+    try {
+        console.log(`엑셀 파일에서 ${equipmentId} 확인상태 업데이트 시작...`);
+        
+        // FTP 연결
+        await client.access(ftpConfig);
+        const files = await client.list('/upload');
+        
+        // 가장 최신 Autobe 엑셀 파일 찾기
+        const autobeFiles = files
+            .filter(file => file.type !== 2 && file.name.startsWith('Autobe_') && file.name.endsWith('.xlsx'))
+            .sort((a, b) => {
+                const timestampA = a.name.match(/(\d{8}_\d{4})/)?.[1] || '00000000_0000';
+                const timestampB = b.name.match(/(\d{8}_\d{4})/)?.[1] || '00000000_0000';
+                return timestampB.localeCompare(timestampA);
+            });
+        
+        if (autobeFiles.length === 0) {
+            return { success: false, error: 'Autobe 엑셀 파일을 찾을 수 없습니다.' };
+        }
+        
+        const latestFile = autobeFiles[0];
+        const localPath = path.join(__dirname, 'temp', latestFile.name);
+        
+        // 로컬 temp 디렉토리 생성
+        if (!fs.existsSync(path.join(__dirname, 'temp'))) {
+            fs.mkdirSync(path.join(__dirname, 'temp'));
+        }
+        
+        // 엑셀 파일 다운로드
+        console.log(`엑셀 파일 다운로드: ${latestFile.name}`);
+        await client.downloadTo(localPath, `/upload/${latestFile.name}`);
+        
+        // 엑셀 파일 읽기 및 수정
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(localPath);
+        
+        // 3번째 시트 선택
+        const worksheet = workbook.worksheets[2]; // 0-based index
+        if (!worksheet) {
+            return { success: false, error: '3번째 시트를 찾을 수 없습니다.' };
+        }
+        
+        let updated = false;
+        let confirmColumnIndex = -1;
+        let equipmentColumnIndex = -1;
+        
+        // 헤더 행에서 컬럼 인덱스 찾기
+        const headerRow = worksheet.getRow(1);
+        headerRow.eachCell((cell, colNumber) => {
+            if (cell.value === '확인') {
+                confirmColumnIndex = colNumber;
+            }
+            if (cell.value === 'EQPID' || cell.value === '장비ID' || cell.value === '장비 ID') {
+                equipmentColumnIndex = colNumber;
+            }
+        });
+        
+        if (confirmColumnIndex === -1) {
+            return { success: false, error: '확인 컬럼을 찾을 수 없습니다.' };
+        }
+        if (equipmentColumnIndex === -1) {
+            return { success: false, error: '장비 ID 컬럼을 찾을 수 없습니다.' };
+        }
+        
+        // 데이터 행들을 순회하며 해당 장비 찾기
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // 헤더 행 스킵
+            
+            const currentEquipmentId = row.getCell(equipmentColumnIndex).value;
+            if (currentEquipmentId === equipmentId) {
+                // 확인 컬럼을 '확인'으로 업데이트
+                row.getCell(confirmColumnIndex).value = '확인';
+                updated = true;
+                console.log(`${equipmentId} 장비의 확인 상태를 '확인'으로 업데이트`);
+            }
+        });
+        
+        if (!updated) {
+            return { success: false, error: `장비 ${equipmentId}를 찾을 수 없습니다.` };
+        }
+        
+        // 엑셀 파일 저장
+        await workbook.xlsx.writeFile(localPath);
+        
+        // FTP로 업로드 (기존 파일 덮어쓰기)
+        console.log(`수정된 엑셀 파일 업로드: ${latestFile.name}`);
+        await client.uploadFrom(localPath, `/upload/${latestFile.name}`);
+        
+        // 임시 파일 삭제
+        fs.unlinkSync(localPath);
+        
+        return { success: true };
+        
+    } catch (error) {
+        console.error('엑셀 파일 업데이트 에러:', error);
+        return { success: false, error: error.message };
+    } finally {
+        client.close();
+    }
+}
 
 // Autobe Check 엔드포인트 (모달 사용으로 더 이상 필요 없음)
 // app.get('/autobe-check', function (req, res) {

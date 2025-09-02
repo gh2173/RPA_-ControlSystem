@@ -757,7 +757,6 @@
             <!-- 파일 선택 부분 제거 -->
             <button id="loadingPositionBtn" class="w-full bg-green-600 py-2 rounded">📚 Loading Position</button>
             <button id="showRPAInterfaceBtn" class="w-full bg-green-600 py-2 rounded">📑 RPA 이력 확인</button>
-            <button id="autobeCheckBtn" class="w-full bg-purple-600 py-2 rounded" onclick="openAutobeModal()">📊 AUTOBE Monitoring</button>
             <button id="remoteControlBtn" class="w-full bg-red-600 p-2 rounded" onclick="window.location.href='/remote'">🛠 Remote Control</button>
             
         </div>
@@ -784,17 +783,8 @@
                 </div>
             </div>
         
-        <!-- Additional Monitoring Space -->
+        <!-- 2등분 레이아웃 - 그리드 설정 영향 받지 않는 고정 레이아웃 -->
         <div id="additionalMonitoring" class="mb-6" style="height: 400px;">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-white">📊 Advanced Monitoring Dashboard</h3>
-                <div class="flex items-center space-x-2">
-                    <span class="bg-green-500 w-2 h-2 rounded-full animate-pulse"></span>
-                    <div class="text-sm text-gray-100 font-medium" id="additionalMonitoringTime">--:--:--</div>
-                </div>
-            </div>
-            
-            <!-- 2등분 레이아웃 - 그리드 설정 영향 받지 않는 고정 레이아웃 -->
             <div class="fixed-two-column-layout" style="display: flex; gap: 1.5rem; height: calc(100% - 60px);">
                 <!-- 왼쪽 패널 -->
                 <div class="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 rounded-xl p-6 shadow-2xl border border-blue-700/50" style="flex: 1; overflow: hidden; min-height: 0;">
@@ -805,10 +795,6 @@
                         </div>
                     </div>
                     <div id="rpaStatusSummary" style="height: calc(100% - 60px); overflow-y: auto;">
-                        <div class="text-center mb-4">
-                            <div class="text-4xl mb-2 text-blue-300">📊</div>
-                            <div class="text-blue-200 text-sm">RPA Status Summary</div>
-                        </div>
                         
                         <!-- 파이차트와 상태 정보 레이아웃 -->
                         <div class="flex items-start gap-4 h-full">
@@ -961,7 +947,7 @@
                 // F5 새로고침 시 장비 모니터링이 기본으로 선택되도록 설정 (monitoringBtn 클릭과 동일한 동작)
                 
                 // 장비 모니터링 버튼을 활성 상태로 표시
-                const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
+                const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #remoteControlBtn');
                 allButtons.forEach(btn => btn.classList.remove('bg-green-600', 'bg-yellow-600'));
                 allButtons.forEach(btn => btn.classList.add('bg-blue-600'));
                 document.getElementById('monitoringBtn').classList.remove('bg-blue-600');
@@ -1399,7 +1385,7 @@
         // 모니터링 버튼 기능 수정
         document.getElementById('monitoringBtn').addEventListener('click', function() {
             // 모든 버튼을 기본 상태로 되돌리기
-            const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
+            const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #remoteControlBtn');
             allButtons.forEach(btn => btn.classList.remove('bg-green-600', 'bg-yellow-600'));
             allButtons.forEach(btn => btn.classList.add('bg-blue-600'));
             
@@ -2462,7 +2448,7 @@
         // Loading Position 버튼 이벤트 리스너
         document.getElementById('loadingPositionBtn').addEventListener('click', function() {
             // 모든 버튼을 기본 상태로 되돌리기
-            const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
+            const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #remoteControlBtn');
             allButtons.forEach(btn => btn.classList.remove('bg-green-600', 'bg-yellow-600'));
             allButtons.forEach(btn => btn.classList.add('bg-blue-600'));
             
@@ -3089,29 +3075,6 @@
         // 초기 데이터 로드
         updateData();
 
-        // Autobe Check 모달 관련 함수들
-        function openAutobeModal() {
-            console.log('Autobe 모달 열기 시작...');
-            const modal = document.getElementById('autobeModal');
-            modal.style.display = 'flex';
-            
-            // 모달이 열릴 때마다 탭 초기화
-            setTimeout(() => {
-                initializeAutobeTabs();
-                // A조 데이터 자동 로드
-                loadAutobeTeamData('a-team');
-                
-                // 정렬 기능 초기화
-                setTimeout(() => {
-                    initAutobeTableSorting();
-                }, 500);
-            }, 100); // 모달 렌더링 후 초기화
-        }
-
-        function closeAutobeModal() {
-            const modal = document.getElementById('autobeModal');
-            modal.style.display = 'none';
-        }
 
 
         // 테이블 정렬 기능 초기화
@@ -3473,7 +3436,6 @@
         // ESC 키로 모달 닫기
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
-                closeAutobeModal();
                 closePasswordModal();
                 closeTeamSelectionModal();
             }
@@ -4062,7 +4024,7 @@
 <script>
     document.getElementById('showRPAInterfaceBtn').addEventListener('click', function() {
         // 모든 버튼을 기본 상태로 되돌리기
-        const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #autobeCheckBtn, #remoteControlBtn');
+        const allButtons = document.querySelectorAll('#monitoringBtn, #loadingPositionBtn, #showRPAInterfaceBtn, #remoteControlBtn');
         allButtons.forEach(btn => btn.classList.remove('bg-green-600', 'bg-yellow-600'));
         allButtons.forEach(btn => btn.classList.add('bg-blue-600'));
         
@@ -4553,20 +4515,24 @@
         updateEquipmentCheckStatus(equipmentId, employeeNumber);
     }
 
-    function updateEquipmentCheckStatus(equipmentId, employeeNumber) {
-        fetch('/updateEquipmentCheck', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                equipmentId: equipmentId,
-                employeeNumber: employeeNumber,
-                timestamp: new Date().toISOString()
-            }),
-        })
-        .then(response => response.json())
-        .then(data => {
+    async function updateEquipmentCheckStatus(equipmentId, employeeNumber) {
+        try {
+            console.log(`장비 ${equipmentId} 확인처리 요청 (담당자: ${employeeNumber})`);
+            
+            const response = await fetch('/confirmAbnormalEquipment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    equipmentId: equipmentId,
+                    employeeNumber: employeeNumber,
+                    timestamp: new Date().toISOString()
+                }),
+            });
+            
+            const data = await response.json();
+            
             if (data.success) {
                 // 모달 닫기
                 closeEquipmentCheckModal();
@@ -4577,15 +4543,16 @@
                 // 카운트 업데이트
                 updateAbnormalCount(-1);
                 
-                alert('확인 처리가 완료되었습니다.');
+                console.log(`장비 ${equipmentId} 확인처리 완료 - 엑셀 파일 업데이트됨`);
+                alert('확인 처리가 완료되었습니다.\n엑셀 파일이 업데이트되어 새로고침 시에도 유지됩니다.');
             } else {
+                console.error('확인처리 실패:', data.error);
                 alert('처리 중 오류가 발생했습니다: ' + (data.error || '알 수 없는 오류'));
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
+        } catch (error) {
+            console.error('확인처리 요청 에러:', error);
             alert('처리 중 오류가 발생했습니다.');
-        });
+        }
     }
 
     function removeEquipmentFromUI(equipmentId) {
@@ -4625,128 +4592,6 @@
     });
 </script>
 
-<!-- Autobe Check 모달 -->
-<div id="autobeModal" class="autobe-modal" style="display: none;">
-    <div class="autobe-modal-overlay" onclick="closeAutobeModal()"></div>
-    <div class="autobe-modal-content">
-        <div class="autobe-modal-header">
-            <h1>AUTOBE CHECK 모니터링</h1>
-            <button class="autobe-close-btn" onclick="closeAutobeModal()">×</button>
-        </div>
-        
-        <!-- 탭 버튼 -->
-        <div class="autobe-tab-container">
-            <button class="autobe-tab-button active" data-tab="a-team">A조</button>
-            <button class="autobe-tab-button" data-tab="b-team">B조</button>
-            <button class="autobe-tab-button" data-tab="c-team">C조</button>
-        </div>
-        
-        <!-- A조 컨텐츠 -->
-        <div id="a-team" class="autobe-tab-content active">
-            <div class="autobe-content-card">
-                <h2>A조 모니터링결과<span id="a-team-count" class="equipment-count" style="display: none;">
-                    AUTOBE 미진행 장비는 <span class="count-number">0</span>대 입니다.
-                </span></h2>
-                <div id="a-team-loading" class="autobe-loading">데이터를 로딩 중입니다...</div>
-                <div id="a-team-table" class="autobe-table-container" style="display: none;">
-                    <table class="autobe-data-table">
-                        <thead>
-                            <tr>
-                                <th data-column="EQPID" data-type="string">
-                                    장비 ID<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="RPA_TIME" data-type="time">
-                                    RPA 시간<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="LOT_ID" data-type="string">
-                                    LOT ID<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="DEVICE_ID" data-type="string">
-                                    디바이스 ID<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="STATUS" data-type="string">
-                                    상태<span class="sort-icon">⇅</span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody id="a-team-tbody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
-        <!-- B조 컨텐츠 -->
-        <div id="b-team" class="autobe-tab-content">
-            <div class="autobe-content-card">
-                <h2>B조 모니터링결과<span id="b-team-count" class="equipment-count" style="display: none;">
-                    AUTOBE 미진행 장비는 <span class="count-number">0</span>대 입니다.
-                </span></h2>
-                <div id="b-team-loading" class="autobe-loading">데이터를 로딩 중입니다...</div>
-                <div id="b-team-table" class="autobe-table-container" style="display: none;">
-                    <table class="autobe-data-table">
-                        <thead>
-                            <tr>
-                                <th data-column="EQPID" data-type="string">
-                                    장비 ID<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="RPA_TIME" data-type="time">
-                                    RPA 시간<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="LOT_ID" data-type="string">
-                                    LOT ID<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="DEVICE_ID" data-type="string">
-                                    디바이스 ID<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="STATUS" data-type="string">
-                                    상태<span class="sort-icon">⇅</span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody id="b-team-tbody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
-        <!-- C조 컨텐츠 -->
-        <div id="c-team" class="autobe-tab-content">
-            <div class="autobe-content-card">
-                <h2>C조 모니터링결과<span id="c-team-count" class="equipment-count" style="display: none;">
-                    AUTOBE 미진행 장비는 <span class="count-number">0</span>대 입니다.
-                </span></h2>
-                <div id="c-team-loading" class="autobe-loading">데이터를 로딩 중입니다...</div>
-                <div id="c-team-table" class="autobe-table-container" style="display: none;">
-                    <table class="autobe-data-table">
-                        <thead>
-                            <tr>
-                                <th data-column="EQPID" data-type="string">
-                                    장비 ID<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="RPA_TIME" data-type="time">
-                                    RPA 시간<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="LOT_ID" data-type="string">
-                                    LOT ID<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="DEVICE_ID" data-type="string">
-                                    디바이스 ID<span class="sort-icon">⇅</span>
-                                </th>
-                                <th data-column="STATUS" data-type="string">
-                                    상태<span class="sort-icon">⇅</span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody id="c-team-tbody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- 비밀번호 입력 모달 -->
 <div id="passwordModal" class="password-modal">
