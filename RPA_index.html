@@ -1918,30 +1918,6 @@
                     cutout: '45%',
                     onHover: (event, activeElements) => {
                         event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
-                    },
-                    onClick: (event, activeElements) => {
-                        if (activeElements.length > 0) {
-                            const dataIndex = activeElements[0].index;
-                            const label = labels[dataIndex];
-                            
-                            // Run, Wait는 클릭 이벤트 처리하지 않음
-                            if (label === 'Run' || label === 'Wait') {
-                                return;
-                            }
-                            
-                            // Error나 기타 상태의 장비 목록 가져오기
-                            let equipmentList = [];
-                            if (label === 'Error') {
-                                equipmentList = chartData.errorEquipments;
-                            } else if (label === '기타') {
-                                equipmentList = chartData.otherEquipments;
-                            }
-                            
-                            // 장비 목록이 있으면 선택 모달 표시
-                            if (equipmentList.length > 0) {
-                                showEquipmentSelectionModal(label, equipmentList);
-                            }
-                        }
                     }
                 }
             });
@@ -1956,67 +1932,6 @@
 
         // 전역 변수 정의
         let globalItem = null;
-    
-        // 장비 선택 모달 표시 함수
-        function showEquipmentSelectionModal(statusLabel, equipmentList) {
-            // 기존 모달이 있다면 제거
-            const existingModal = document.getElementById('equipmentSelectionModal');
-            if (existingModal) {
-                existingModal.remove();
-            }
-            
-            const modal = document.createElement('div');
-            modal.id = 'equipmentSelectionModal';
-            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-            modal.innerHTML = `
-                <div class="bg-white text-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-96 overflow-y-auto shadow-lg">
-                    <h2 class="text-xl font-bold mb-4">${statusLabel} 상태 장비 목록</h2>
-                    <div class="grid gap-2 mb-4">
-                        ${equipmentList.map(eq => `
-                            <div class="bg-gray-100 rounded p-3 border hover:bg-gray-200 cursor-pointer equipment-item" 
-                                 data-eqpid="${eq.eqpid}">
-                                <div class="flex justify-between items-center">
-                                    <div>
-                                        <div class="font-semibold text-blue-600">${eq.eqpid}</div>
-                                        <div class="text-sm text-gray-600">Device: ${eq.device}</div>
-                                        <div class="text-sm text-gray-600">Detail: ${eq.pgDetail}</div>
-                                    </div>
-                                    <div class="text-right">
-                                        <div class="text-sm text-gray-500">클릭하여 모니터링</div>
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="flex justify-end">
-                        <button id="closeEquipmentModal" class="bg-gray-600 text-white px-4 py-2 rounded shadow-lg">닫기</button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            
-            // 장비 아이템 클릭 이벤트
-            modal.querySelectorAll('.equipment-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    const eqpid = item.getAttribute('data-eqpid');
-                    modal.remove();
-                    openModal(eqpid);
-                });
-            });
-            
-            // 모달 닫기 버튼 이벤트
-            document.getElementById('closeEquipmentModal').addEventListener('click', () => {
-                modal.remove();
-            });
-            
-            // 모달 외부 클릭 시 닫기
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.remove();
-                }
-            });
-        }
     
         // 모달 열기 함수
         async function openModal(eqpid) {
