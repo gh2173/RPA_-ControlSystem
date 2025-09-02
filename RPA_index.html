@@ -2682,11 +2682,17 @@
           
         // 필터링 함수도 수정 (엑셀 컬럼명 기준으로 필터링)
         function filterData(data) {
+            // 임시로 모든 데이터를 통과시킴 (필터링 조건 문제로 인해)
+            return data;
+            
+            // 원래 코드 (문제가 있어서 주석 처리)
+            /*
             return data.filter(row => {
                 // DB 컬럼명과 엑셀 컬럼명 모두 확인
                 const sortType = row['SORT_TYPE'] || row['SORT'];
                 return ['LOT_CHANGE', 'CONVERSION', 'MONITORING'].includes(sortType);
             });
+            */
         }
         
 
