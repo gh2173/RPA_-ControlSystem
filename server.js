@@ -397,19 +397,20 @@ app.get('/getSummaryReport', async function (req, res) {
             return res.status(404).send('데이터가 없습니다.');
         }
 
-        // 캠퍼스 필터링 적용
+        // 캠퍼스 필터링 적용 (임시로 비활성화)
         let filteredData = result.rows;
         
         if (campus) {
             // 세션 캠퍼스를 실제 캠퍼스로 변환 (ns2CAM -> NS2, ns3CAM -> NS3)
             const targetCampus = campus === 'ns2CAM' ? 'NS2' : campus === 'ns3CAM' ? 'NS3' : campus;
             
-            filteredData = result.rows.filter(item => {
-                const equipmentCampus = getEquipmentCampus(item.MACHINE);
-                return equipmentCampus === targetCampus;
-            });
+            // 임시로 필터링 비활성화 (모든 데이터 통과)
+            // filteredData = result.rows.filter(item => {
+            //     const equipmentCampus = getEquipmentCampus(item.MACHINE);
+            //     return equipmentCampus === targetCampus;
+            // });
             
-            console.log(`Summary report filtered: ${result.rows.length} -> ${filteredData.length} records for campus ${targetCampus}`);
+            console.log(`Summary report (filtering disabled): ${result.rows.length} records for campus ${targetCampus}`);
         }
 
         // 필터링된 데이터를 JSON 형식으로 반환
